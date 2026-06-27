@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.KeyEvent
@@ -12,6 +13,7 @@ import android.view.KeyEvent
 class KeyboardView(context: Context) : View(context) {
 
     private var dispatcher: KeyEventDispatcher? = null
+    private var gestureDetector: GestureDetector? = null
     
     private var keyboardWidth = 0
     private var keyboardHeight = 0
@@ -52,6 +54,10 @@ class KeyboardView(context: Context) : View(context) {
     
     fun setDispatcher(d: KeyEventDispatcher) {
         this.dispatcher = d
+        if (context is CompBoardInputMethodService) {
+            val handler = GestureHandler(d, context as CompBoardInputMethodService)
+            gestureDetector = GestureDetector(context, handler)
+        }
     }
     
     fun updateForEditorInfo(info: android.view.inputmethod.EditorInfo?) {
@@ -197,6 +203,8 @@ class KeyboardView(context: Context) : View(context) {
     }
     
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        gestureDetector?.onTouchEvent(event)
+        
         if (event.action == MotionEvent.ACTION_DOWN) {
             val x = event.x
             val y = event.y

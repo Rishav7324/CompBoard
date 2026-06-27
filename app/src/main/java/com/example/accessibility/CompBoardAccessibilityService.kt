@@ -23,7 +23,20 @@ class CompBoardAccessibilityService : AccessibilityService() {
         // Setup configuration if needed dynamically
     }
     
-    fun performGlobalShortcut(action: Int) {
-        performGlobalAction(action)
+    fun performGlobalShortcut(actionCode: String) {
+        when (actionCode) {
+            "RECENTS" -> performGlobalAction(GLOBAL_ACTION_RECENTS)
+            "HOME" -> performGlobalAction(GLOBAL_ACTION_HOME)
+            "BACK" -> performGlobalAction(GLOBAL_ACTION_BACK)
+            "NOTIFICATIONS" -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+            "QUICK_SETTINGS" -> performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
+            "LOCK_SCREEN" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            }
+            "TAKE_SCREENSHOT" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
+            }
+            "TOGGLE_SPLIT_SCREEN" -> performGlobalAction(GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN)
+        }
     }
 }

@@ -5,10 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Macro::class, ClipboardEntry::class], version = 1, exportSchema = false)
+@Database(entities = [Macro::class, ClipboardEntry::class, AppLayoutRule::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun macroDao(): MacroDao
     abstract fun clipboardHistoryDao(): ClipboardHistoryDao
+    abstract fun appLayoutRuleDao(): AppLayoutRuleDao
 
     companion object {
         @Volatile
@@ -20,7 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "compboard_db"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }
