@@ -34,22 +34,23 @@ fun ClipboardPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.5f)
-            .background(Surface)
+            .fillMaxHeight(0.6f)
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(Background)
     ) {
         // Handle
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(top = 12.dp, bottom = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFF444444))
+                    .width(48.dp)
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color(0xFF38383A))
             )
         }
         
@@ -57,15 +58,16 @@ fun ClipboardPanel(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("📋 Clipboard History", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Clipboard", color = TextPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
             Text(
                 "Clear All", 
                 color = KeyDanger, 
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
                 modifier = Modifier.clickable { onClearAll() }
             )
         }
@@ -76,36 +78,36 @@ fun ClipboardPanel(
             onValueChange = {},
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .height(50.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .height(52.dp),
             placeholder = { Text("Search clipboard...", color = TextSecondary) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Border,
+                unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = Primary,
                 unfocusedTextColor = TextPrimary,
                 focusedTextColor = TextPrimary,
-                unfocusedContainerColor = Background,
-                focusedContainerColor = Background
+                unfocusedContainerColor = SurfaceVariant,
+                focusedContainerColor = SurfaceVariant
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(14.dp)
         )
         
         if (entries.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("📋", fontSize = 48.sp)
+                    Text("📋", fontSize = 56.sp)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("No clipboard history yet", color = TextPrimary, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Copy something to see it here", color = TextSecondary, fontSize = 14.sp)
+                    Text("No clipboard history yet", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Copied items will appear here", color = TextSecondary, fontSize = 14.sp)
                 }
             }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(entries) { entry ->
                     ClipboardItemCard(
@@ -127,53 +129,58 @@ fun ClipboardItemCard(
     onPin: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val bgColor = if (entry.isPinned) KeyModifier else Color(0xFF1A1A1A)
+    val bgColor = if (entry.isPinned) KeyModifier else Surface
+    val borderColor = if (entry.isPinned) Primary.copy(alpha = 0.5f) else Color.Transparent
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     text = entry.preview,
                     color = TextPrimary,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     maxLines = 2,
+                    lineHeight = 22.sp,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
                 if (entry.isPinned) {
-                    Text("📌", modifier = Modifier.padding(start = 8.dp))
+                    Text("📌", modifier = Modifier.padding(start = 12.dp), fontSize = 16.sp)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(), 
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Just now", // TODO: format timestamp
-                    color = TextSecondary,
-                    fontSize = 12.sp
+                    text = if (entry.contentType == "secure") "Secure Content" else "Text",
+                    color = if (entry.contentType == "secure") Success else TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
-                        "📌", 
-                        fontSize = 14.sp,
+                        if (entry.isPinned) "Unpin" else "Pin", 
+                        color = Primary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { onPin() }
                     )
-                    Icon(
-                        Icons.Default.Delete, 
-                        contentDescription = "Delete",
-                        tint = TextSecondary,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable { onDelete() }
+                    Text(
+                        "Delete", 
+                        color = Error,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onDelete() }
                     )
                 }
             }

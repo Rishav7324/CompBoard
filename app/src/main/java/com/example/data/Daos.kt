@@ -50,3 +50,27 @@ interface AppLayoutRuleDao {
     @Query("DELETE FROM app_layout_rules WHERE packageName = :packageName")
     suspend fun deleteRule(packageName: String)
 }
+
+@Dao
+interface ShortcutDao {
+    @Query("SELECT * FROM shortcut_profiles")
+    fun getAllProfiles(): Flow<List<ShortcutProfile>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProfile(profile: ShortcutProfile): Long
+    
+    @Query("SELECT * FROM shortcuts WHERE profileId = :profileId")
+    fun getShortcutsForProfile(profileId: Int): Flow<List<ShortcutEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShortcut(shortcut: ShortcutEntity): Long
+
+    @Query("DELETE FROM shortcuts WHERE id = :id")
+    suspend fun deleteShortcut(id: Int)
+    
+    @Query("SELECT * FROM shortcut_analytics")
+    fun getAnalytics(): Flow<List<ShortcutAnalytics>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updateAnalytics(analytics: ShortcutAnalytics)
+}

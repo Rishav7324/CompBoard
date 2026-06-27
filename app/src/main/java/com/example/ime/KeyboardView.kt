@@ -19,19 +19,29 @@ class KeyboardView(context: Context) : View(context) {
     private var keyboardHeight = 0
     private var keyMargin = 0f
     private val keys = mutableListOf<Key>()
+    private val activePointers = mutableMapOf<Int, Key?>()
+    
+    // Repeat Engine
+    private val repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val repeatingKeys = mutableMapOf<Int, Runnable>()
+    private val REPEAT_DELAY_MS = 400L
+    private val REPEAT_INTERVAL_MS = 50L
     
     // Theme Colors
-    private val colorBackground = Color.parseColor("#0A0A0A")
-    private val colorSurface = Color.parseColor("#111111")
-    private val colorKeyDefault = Color.parseColor("#1E1E1E")
-    private val colorKeyModifier = Color.parseColor("#2A1F3D")
-    private val colorKeyActive = Color.parseColor("#5C3DDD")
-    private val colorKeyAccent = Color.parseColor("#7B5CF6")
-    private val colorKeyDanger = Color.parseColor("#C0392B")
+    private val colorBackground = Color.parseColor("#050505")
+    private val colorSurface = Color.parseColor("#050505")
+    private val colorKeyDefault = Color.parseColor("#1A1A1A")
+    private val colorKeyModifier = Color.parseColor("#262626")
+    private val colorKeyActive = Color.parseColor("#5C3DDD") 
+    private val colorKeyAccent = Color.parseColor("#5C3DDD")
+    private val colorKeyDanger = Color.parseColor("#DC2626")
     private val colorTextPrimary = Color.parseColor("#F5F5F5")
-    private val colorTextSecondary = Color.parseColor("#888888")
+    private val colorTextSecondary = Color.parseColor("#737373")
     private val colorBorder = Color.parseColor("#2A2A2A")
-    private val colorTextAccent = Color.parseColor("#A78BFA")
+    private val colorTextAccent = Color.parseColor("#FFFFFF")
+    private val colorBorderAccent = Color.parseColor("#5C3DDD")
+    private val colorBorderDanger = Color.parseColor("#B91C1C")
+    private val colorTextDanger = Color.parseColor("#FFFFFF")
 
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colorSurface }
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -45,11 +55,19 @@ class KeyboardView(context: Context) : View(context) {
         color = colorTextPrimary
         textAlign = Paint.Align.CENTER
         typeface = android.graphics.Typeface.MONOSPACE
+        textSize = 18f * android.content.res.Resources.getSystem().displayMetrics.density
     }
     private val textPaintSecondary = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = colorTextSecondary
         textAlign = Paint.Align.RIGHT
         typeface = android.graphics.Typeface.MONOSPACE
+        textSize = 12f * android.content.res.Resources.getSystem().displayMetrics.density
+    }
+    
+    init {
+        setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        isFocusable = false
+        isFocusableInTouchMode = false
     }
     
     fun setDispatcher(d: KeyEventDispatcher) {
@@ -69,10 +87,10 @@ class KeyboardView(context: Context) : View(context) {
         if (w == 0 || h == 0) return
         keyboardWidth = w
         keyboardHeight = h
-        keyMargin = w * 0.008f // ~3dp gap
+        keyMargin = w * 0.01f // ~4dp gap
         
-        textPaintPrimary.textSize = w * 0.035f
-        textPaintSecondary.textSize = w * 0.025f
+        textPaintPrimary.textSize = w * 0.038f // Slightly larger text
+        textPaintSecondary.textSize = w * 0.026f
         
         generateLayout()
     }
@@ -82,7 +100,6 @@ class KeyboardView(context: Context) : View(context) {
         val numCols = 15f
         val baseWidth = (keyboardWidth - keyMargin * (numCols + 1)) / numCols
         val rowHeights = listOf(
-            keyboardHeight * 0.1f,  // Status Bar
             keyboardHeight * 0.12f, // F-Row
             keyboardHeight * 0.15f, // Num Row
             keyboardHeight * 0.15f, // QWERTY
@@ -93,8 +110,8 @@ class KeyboardView(context: Context) : View(context) {
         
         var currentY = 0f
         
-        // Status Bar (Top)
-        currentY += rowHeights[0]
+        // Skip some height for the compose top bar overlay so we don't draw under it
+        currentY += keyboardHeight * 0.10f
         
         // Row 0: F-Row
         var currentX = keyMargin
@@ -106,55 +123,89 @@ class KeyboardView(context: Context) : View(context) {
                 "Del" -> KeyEvent.KEYCODE_FORWARD_DEL
                 else -> KeyEvent.KEYCODE_F1 + (label.drop(1).toIntOrNull()?.minus(1) ?: 0)
             }
-            val keyType = if (label == "Esc" || label == "Del") KeyType.DANGER else KeyType.NORMAL
-            keys.add(Key(RectF(currentX, currentY, currentX + fKeyWidth, currentY + rowHeights[1] - keyMargin), label, "", code, keyType))
+            val keyType = if (label == "Esc") KeyType.DANGER else KeyType.NORMAL
+            keys.add(Key(RectF(currentX, currentY, currentX + fKeyWidth, currentY + rowHeights[0] - keyMargin), label, "", code, keyType))
             currentX += fKeyWidth + keyMargin
         }
-        currentY += rowHeights[1]
+        currentY += rowHeights[0]
         
         // Helper to add rows
-        fun addRow(rowDef: List<Pair<String, Float>>, isShift: Boolean = false) {
+        fun addRow(rowDef: List<Triple<String, String, Float>>, heightIndex: Int) {
             currentX = keyMargin
-            for ((label, weight) in rowDef) {
+            for ((label, secLabel, weight) in rowDef) {
                 val keyW = baseWidth * weight + keyMargin * (weight - 1)
                 val code = getKeyCode(label)
                 val type = when {
-                    label in listOf("Tab", "Caps", "Shift", "Ctrl", "Win", "Alt", "Fn") -> KeyType.MODIFIER
-                    label == "Enter" -> KeyType.ACCENT
+                    label in listOf("Tab", "Caps", "Shift", "Ctrl", "Win", "Alt", "Fn", "AltGr") -> KeyType.MODIFIER
+                    label == "Enter" || label == "⌫" || label == "Bksp" -> KeyType.ACCENT
                     else -> KeyType.NORMAL
                 }
-                keys.add(Key(RectF(currentX, currentY, currentX + keyW, currentY + rowHeights[if (isShift) 4 else 3] - keyMargin), label, "", code, type))
+                keys.add(Key(RectF(currentX, currentY, currentX + keyW, currentY + rowHeights[heightIndex] - keyMargin), label, secLabel, code, type))
                 currentX += keyW + keyMargin
             }
-            currentY += rowHeights[if (isShift) 4 else 3]
+            currentY += rowHeights[heightIndex]
         }
         
         // Row 1: Numbers
-        val numRow = listOf("`" to 1f, "1" to 1f, "2" to 1f, "3" to 1f, "4" to 1f, "5" to 1f, "6" to 1f, "7" to 1f, "8" to 1f, "9" to 1f, "0" to 1f, "-" to 1f, "=" to 1f, "Bksp" to 2f)
-        addRow(numRow)
+        val numRow = listOf(
+            Triple("`", "~", 1f), Triple("1", "!", 1f), Triple("2", "@", 1f), Triple("3", "#", 1f), 
+            Triple("4", "$", 1f), Triple("5", "%", 1f), Triple("6", "^", 1f), Triple("7", "&", 1f), 
+            Triple("8", "*", 1f), Triple("9", "(", 1f), Triple("0", ")", 1f), Triple("-", "_", 1f), 
+            Triple("=", "+", 1f), Triple("⌫", "", 2f)
+        )
+        addRow(numRow, 1)
         
         // Row 2: QWERTY
-        val qwertyRow = listOf("Tab" to 1.5f, "Q" to 1f, "W" to 1f, "E" to 1f, "R" to 1f, "T" to 1f, "Y" to 1f, "U" to 1f, "I" to 1f, "O" to 1f, "P" to 1f, "[" to 1f, "]" to 1f, "\\" to 1.5f)
-        addRow(qwertyRow)
+        val qwertyRow = listOf(
+            Triple("Tab", "", 1.5f), Triple("Q", "", 1f), Triple("W", "", 1f), Triple("E", "", 1f), 
+            Triple("R", "", 1f), Triple("T", "", 1f), Triple("Y", "", 1f), Triple("U", "", 1f), 
+            Triple("I", "", 1f), Triple("O", "", 1f), Triple("P", "", 1f), Triple("[", "{", 1f), 
+            Triple("]", "}", 1f), Triple("\\", "|", 1.5f)
+        )
+        addRow(qwertyRow, 2)
         
         // Row 3: Home
-        currentY -= rowHeights[3]
-        currentY += rowHeights[3]
-        
-        val homeRow = listOf("Caps" to 1.8f, "A" to 1f, "S" to 1f, "D" to 1f, "F" to 1f, "G" to 1f, "H" to 1f, "J" to 1f, "K" to 1f, "L" to 1f, ";" to 1f, "'" to 1f, "Enter" to 2.2f)
-        addRow(homeRow, true) // uses rowHeight[4]
+        val homeRow = listOf(
+            Triple("Caps", "", 1.8f), Triple("A", "", 1f), Triple("S", "", 1f), Triple("D", "", 1f), 
+            Triple("F", "", 1f), Triple("G", "", 1f), Triple("H", "", 1f), Triple("J", "", 1f), 
+            Triple("K", "", 1f), Triple("L", "", 1f), Triple(";", ":", 1f), Triple("'", "\"", 1f), 
+            Triple("Enter", "", 2.2f)
+        )
+        addRow(homeRow, 3)
         
         // Row 4: Shift
-        currentY -= rowHeights[4]
-        currentY += rowHeights[4]
-        val shiftRow = listOf("Shift" to 2.3f, "Z" to 1f, "X" to 1f, "C" to 1f, "V" to 1f, "B" to 1f, "N" to 1f, "M" to 1f, "," to 1f, "." to 1f, "/" to 1f, "Shift" to 2.7f)
-        addRow(shiftRow)
+        val shiftRow = listOf(
+            Triple("Shift", "", 2.3f), Triple("Z", "", 1f), Triple("X", "", 1f), Triple("C", "", 1f), 
+            Triple("V", "", 1f), Triple("B", "", 1f), Triple("N", "", 1f), Triple("M", "", 1f), 
+            Triple(",", "<", 1f), Triple(".", ">", 1f), Triple("/", "?", 1f), Triple("Shift", "", 2.7f)
+        )
+        addRow(shiftRow, 4)
         
         // Row 5: Bottom
-        currentY -= rowHeights[3]
-        currentY += rowHeights[5]
-        val bottomRow = listOf("Ctrl" to 1.5f, "Win" to 1.2f, "Alt" to 1.2f, "SPACE" to 6.1f, "Alt" to 1.2f, "Fn" to 1.2f, "<-" to 1f, "v" to 1f, "->" to 1f) // Missing up arrow for simplicity for now
-        addRow(bottomRow)
+        val bottomRow = listOf(
+            Triple("Ctrl", "", 1.5f), Triple("Win", "", 1.2f), Triple("Alt", "", 1.2f), 
+            Triple("EN", "", 6.1f), Triple("AltGr", "", 1.2f), Triple("Fn", "", 1.2f), 
+            Triple("Ctrl", "", 1.2f)
+        )
+        // Add arrow keys manually since they have a custom layout
+        currentX = keyMargin
+        for ((label, secLabel, weight) in bottomRow) {
+            val keyW = baseWidth * weight + keyMargin * (weight - 1)
+            val code = getKeyCode(label)
+            val type = if (label == "EN") KeyType.NORMAL else KeyType.MODIFIER
+            keys.add(Key(RectF(currentX, currentY, currentX + keyW, currentY + rowHeights[5] - keyMargin), label, secLabel, code, type))
+            currentX += keyW + keyMargin
+        }
+        
+        // Arrow Keys (Up, Down, Left, Right)
+        val arrW = (keyboardWidth - currentX - keyMargin) / 3f - keyMargin
+        val arrH = (rowHeights[5] - keyMargin * 2) / 2f
+        val startX = currentX
+        
+        keys.add(Key(RectF(startX, currentY + arrH + keyMargin, startX + arrW, currentY + rowHeights[5] - keyMargin), "◀", "", KeyEvent.KEYCODE_DPAD_LEFT, KeyType.NORMAL))
+        keys.add(Key(RectF(startX + arrW + keyMargin, currentY, startX + arrW * 2 + keyMargin, currentY + arrH), "▲", "", KeyEvent.KEYCODE_DPAD_UP, KeyType.NORMAL))
+        keys.add(Key(RectF(startX + arrW + keyMargin, currentY + arrH + keyMargin, startX + arrW * 2 + keyMargin, currentY + rowHeights[5] - keyMargin), "▼", "", KeyEvent.KEYCODE_DPAD_DOWN, KeyType.NORMAL))
+        keys.add(Key(RectF(startX + arrW * 2 + keyMargin * 2, currentY + arrH + keyMargin, startX + arrW * 3 + keyMargin * 2, currentY + rowHeights[5] - keyMargin), "▶", "", KeyEvent.KEYCODE_DPAD_RIGHT, KeyType.NORMAL))
     }
 
     
@@ -164,75 +215,304 @@ class KeyboardView(context: Context) : View(context) {
             if (char in 'A'..'Z') {
                 return KeyEvent.KEYCODE_A + (char - 'A')
             }
+            if (char in '0'..'9') {
+                return KeyEvent.KEYCODE_0 + (char - '0')
+            }
+            return when (char) {
+                '`' -> KeyEvent.KEYCODE_GRAVE
+                '-' -> KeyEvent.KEYCODE_MINUS
+                '=' -> KeyEvent.KEYCODE_EQUALS
+                '[' -> KeyEvent.KEYCODE_LEFT_BRACKET
+                ']' -> KeyEvent.KEYCODE_RIGHT_BRACKET
+                '\\' -> KeyEvent.KEYCODE_BACKSLASH
+                ';' -> KeyEvent.KEYCODE_SEMICOLON
+                '\'' -> KeyEvent.KEYCODE_APOSTROPHE
+                ',' -> KeyEvent.KEYCODE_COMMA
+                '.' -> KeyEvent.KEYCODE_PERIOD
+                '/' -> KeyEvent.KEYCODE_SLASH
+                else -> KeyEvent.KEYCODE_UNKNOWN
+            }
         }
-        return KeyEvent.KEYCODE_UNKNOWN
+        return when (label) {
+            "⌫", "Bksp" -> KeyEvent.KEYCODE_DEL
+            "Enter" -> KeyEvent.KEYCODE_ENTER
+            "EN", "SPACE" -> KeyEvent.KEYCODE_SPACE
+            "Tab" -> KeyEvent.KEYCODE_TAB
+            "Shift" -> KeyEvent.KEYCODE_SHIFT_LEFT
+            "Ctrl" -> KeyEvent.KEYCODE_CTRL_LEFT
+            "Alt", "AltGr" -> KeyEvent.KEYCODE_ALT_LEFT
+            "Win" -> KeyEvent.KEYCODE_META_LEFT
+            "Caps" -> KeyEvent.KEYCODE_CAPS_LOCK
+            "Esc" -> KeyEvent.KEYCODE_ESCAPE
+            "◀" -> KeyEvent.KEYCODE_DPAD_LEFT
+            "▲" -> KeyEvent.KEYCODE_DPAD_UP
+            "▼" -> KeyEvent.KEYCODE_DPAD_DOWN
+            "▶" -> KeyEvent.KEYCODE_DPAD_RIGHT
+            else -> KeyEvent.KEYCODE_UNKNOWN
+        }
     }
     
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
         for (key in keys) {
-            val isPressed = false // TODO: State tracking
+            val isPressed = activePointers.values.contains(key)
+            val isToggled = when (key.code) {
+                KeyEvent.KEYCODE_SHIFT_LEFT -> ModifierState.shiftPressed || ModifierState.capsLockEnabled
+                KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> ModifierState.ctrlPressed
+                KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT -> ModifierState.altPressed
+                KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT -> ModifierState.metaPressed
+                else -> false
+            }
             
             keyPaint.color = when (key.type) {
-                KeyType.MODIFIER -> colorKeyModifier
+                KeyType.MODIFIER -> if (isToggled) colorKeyActive else colorKeyModifier
                 KeyType.ACCENT -> colorKeyAccent
                 KeyType.DANGER -> colorKeyDanger
                 else -> colorKeyDefault
             }
             
+            val radius = 8f * resources.displayMetrics.density
+            
             val drawRect = if (isPressed) {
                 val cx = key.rect.centerX()
                 val cy = key.rect.centerY()
-                val w = key.rect.width() * 0.92f / 2
-                val h = key.rect.height() * 0.92f / 2
-                RectF(cx - w, cy - h, cx + w, cy + h)
+                val w = key.rect.width() * 0.94f / 2
+                val h = key.rect.height() * 0.94f / 2
+                // Slightly offset down when pressed
+                RectF(cx - w, cy - h + 2f * resources.displayMetrics.density, cx + w, cy + h + 2f * resources.displayMetrics.density)
             } else {
                 key.rect
             }
-            
-            val radius = if (key.label == "SPACE") 8f * resources.displayMetrics.density else 6f * resources.displayMetrics.density
+
+            // Draw shadow for 3D effect if not pressed
+            if (!isPressed) {
+                val shadowRect = RectF(drawRect.left, drawRect.top + 3f * resources.displayMetrics.density, drawRect.right, drawRect.bottom + 3f * resources.displayMetrics.density)
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { 
+                    color = Color.parseColor("#000000")
+                }
+                canvas.drawRoundRect(shadowRect, radius, radius, shadowPaint)
+            }
             
             canvas.drawRoundRect(drawRect, radius, radius, keyPaint)
+            
+            keyBorderPaint.color = when (key.type) {
+                KeyType.ACCENT -> colorBorderAccent
+                KeyType.DANGER -> colorBorderDanger
+                KeyType.MODIFIER -> if (isToggled) colorKeyActive else colorBorder
+                else -> colorBorder
+            }
             canvas.drawRoundRect(drawRect, radius, radius, keyBorderPaint)
             
-            textPaintPrimary.color = if (key.type == KeyType.MODIFIER) colorTextAccent else colorTextPrimary
+            if (isToggled) {
+                // Draw a white line indicator at the bottom of toggled keys
+                val indicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.FILL }
+                val lineH = 3f * resources.displayMetrics.density
+                val lineW = drawRect.width() * 0.5f
+                val lineRect = RectF(drawRect.centerX() - lineW/2, drawRect.bottom - lineH - 6f * resources.displayMetrics.density, drawRect.centerX() + lineW/2, drawRect.bottom - 6f * resources.displayMetrics.density)
+                canvas.drawRoundRect(lineRect, lineH/2, lineH/2, indicatorPaint)
+            } else if (key.label == "Caps" && ModifierState.capsLockEnabled) {
+                // Dot indicator
+                val indicatorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#34D399"); style = Paint.Style.FILL }
+                canvas.drawCircle(drawRect.right - 10f * resources.displayMetrics.density, drawRect.top + 10f * resources.displayMetrics.density, 4f * resources.displayMetrics.density, indicatorPaint)
+            }
             
-            canvas.drawText(key.label, drawRect.centerX(), drawRect.centerY() + textPaintPrimary.textSize / 3, textPaintPrimary)
+            textPaintPrimary.color = when (key.type) {
+                KeyType.MODIFIER -> if (isToggled) Color.WHITE else colorTextAccent
+                KeyType.ACCENT -> if (key.label == "⌫") colorTextDanger else colorTextAccent
+                KeyType.DANGER -> colorTextPrimary
+                else -> colorTextPrimary
+            }
+            
+            if (key.secondaryLabel.isNotEmpty()) {
+                // If there's a secondary label, we usually put both stacked or side by side
+                // The design shows the secondary label small in the top-left, primary centered or slightly offset
+                textPaintPrimary.textAlign = Paint.Align.CENTER
+                canvas.drawText(key.label, drawRect.centerX(), drawRect.centerY() + textPaintPrimary.textSize, textPaintPrimary)
+                
+                textPaintSecondary.textAlign = Paint.Align.LEFT
+                canvas.drawText(key.secondaryLabel, drawRect.left + 8f * resources.displayMetrics.density, drawRect.top + 16f * resources.displayMetrics.density, textPaintSecondary)
+            } else {
+                textPaintPrimary.textAlign = Paint.Align.CENTER
+                canvas.drawText(key.label, drawRect.centerX(), drawRect.centerY() + textPaintPrimary.textSize / 3, textPaintPrimary)
+            }
         }
     }
     
     override fun onTouchEvent(event: MotionEvent): Boolean {
         gestureDetector?.onTouchEvent(event)
         
-        if (event.action == MotionEvent.ACTION_DOWN) {
-            val x = event.x
-            val y = event.y
-            for (key in keys) {
-                if (key.rect.contains(x, y)) {
-                    handleKeyPress(key)
-                    return true
+        val action = event.actionMasked
+        val pointerIndex = event.actionIndex
+        val pointerId = event.getPointerId(pointerIndex)
+        val x = event.getX(pointerIndex)
+        val y = event.getY(pointerIndex)
+
+        when (action) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                val key = findKeyAt(x, y)
+                if (key != null) {
+                    activePointers[pointerId] = key
+                    handleKeyDown(key)
+                    invalidateKey(key)
                 }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                for (i in 0 until event.pointerCount) {
+                    val pId = event.getPointerId(i)
+                    val px = event.getX(i)
+                    val py = event.getY(i)
+                    val currentKey = activePointers[pId]
+                    val newKey = findKeyAt(px, py)
+                    
+                    if (currentKey != newKey) {
+                        currentKey?.let { 
+                            handleKeyUp(it)
+                            invalidateKey(it) 
+                        }
+                        if (newKey != null) {
+                            activePointers[pId] = newKey
+                            handleKeyDown(newKey)
+                            invalidateKey(newKey)
+                        } else {
+                            activePointers.remove(pId)
+                        }
+                    }
+                }
+            }
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_POINTER_UP -> {
+                val key = activePointers.remove(pointerId)
+                key?.let { 
+                    handleKeyUp(it)
+                    invalidateKey(it) 
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                for (key in activePointers.values) {
+                    key?.let { 
+                        handleKeyUp(it)
+                        invalidateKey(it) 
+                    }
+                }
+                activePointers.clear()
             }
         }
         return true
     }
     
-    private fun handleKeyPress(key: Key) {
-        if (key.code == KeyEvent.KEYCODE_SPACE || key.label == "SPACE") {
-            dispatcher?.sendText(" ")
-        } else if (key.code == KeyEvent.KEYCODE_DEL || key.code == KeyEvent.KEYCODE_ENTER) {
-            dispatcher?.sendKey(key.code)
-        } else if (key.code != KeyEvent.KEYCODE_UNKNOWN) {
-            dispatcher?.sendKey(key.code)
-        } else {
-            dispatcher?.sendText(key.label)
+    @Suppress("DEPRECATION")
+    private fun invalidateKey(key: Key) {
+        val r = key.rect
+        invalidate((r.left - 2).toInt(), (r.top - 2).toInt(), (r.right + 2).toInt(), (r.bottom + 2).toInt())
+    }
+    
+    private fun findKeyAt(x: Float, y: Float): Key? {
+        for (key in keys) {
+            if (key.rect.contains(x, y)) {
+                return key
+            }
+        }
+        return null
+    }
+    
+    private fun handleKeyDown(key: Key) {
+        // Start repeat engine
+        val runnable = object : Runnable {
+            override fun run() {
+                repeatKey(key)
+                repeatHandler.postDelayed(this, REPEAT_INTERVAL_MS)
+            }
+        }
+        repeatingKeys[key.code]?.let { repeatHandler.removeCallbacks(it) }
+        if (key.type != KeyType.MODIFIER) {
+            repeatingKeys[key.code] = runnable
+            repeatHandler.postDelayed(runnable, REPEAT_DELAY_MS)
+        }
+
+        when {
+            key.label == "SPACE" || key.label == "EN" -> dispatcher?.sendText(" ")
+            key.code == KeyEvent.KEYCODE_DEL || key.code == KeyEvent.KEYCODE_ENTER || 
+            key.code == KeyEvent.KEYCODE_DPAD_LEFT || key.code == KeyEvent.KEYCODE_DPAD_RIGHT || 
+            key.code == KeyEvent.KEYCODE_DPAD_UP || key.code == KeyEvent.KEYCODE_DPAD_DOWN ||
+            key.code == KeyEvent.KEYCODE_ESCAPE || key.code == KeyEvent.KEYCODE_TAB -> {
+                dispatcher?.sendKeyDown(key.code)
+            }
+            key.type == KeyType.MODIFIER -> {
+                dispatcher?.sendKeyDown(key.code)
+            }
+            else -> {
+                dispatcher?.sendKeyDown(key.code)
+            }
+        }
+    }
+    
+    private fun repeatKey(key: Key) {
+        when {
+            key.label == "SPACE" || key.label == "EN" -> dispatcher?.sendText(" ")
+            key.code == KeyEvent.KEYCODE_DEL || key.code == KeyEvent.KEYCODE_ENTER || 
+            key.code == KeyEvent.KEYCODE_DPAD_LEFT || key.code == KeyEvent.KEYCODE_DPAD_RIGHT || 
+            key.code == KeyEvent.KEYCODE_DPAD_UP || key.code == KeyEvent.KEYCODE_DPAD_DOWN ||
+            key.code == KeyEvent.KEYCODE_ESCAPE || key.code == KeyEvent.KEYCODE_TAB -> {
+                dispatcher?.sendKeyDown(key.code)
+                dispatcher?.sendKeyUp(key.code)
+            }
+            else -> {
+                dispatcher?.sendKeyDown(key.code)
+                dispatcher?.sendKeyUp(key.code)
+                val noModifiers = ModifierState.getModifierMask() == 0
+                if (key.code == KeyEvent.KEYCODE_UNKNOWN || (noModifiers && key.label.length == 1)) {
+                    val isShifted = ModifierState.shiftPressed || ModifierState.capsLockEnabled
+                    val textToCommit = if (key.label.length == 1) {
+                        if (isShifted) key.label.uppercase() else key.label.lowercase()
+                    } else {
+                        key.label
+                    }
+                    dispatcher?.sendText(textToCommit)
+                }
+            }
+        }
+    }
+
+    private fun handleKeyUp(key: Key) {
+        repeatingKeys[key.code]?.let { repeatHandler.removeCallbacks(it) }
+        repeatingKeys.remove(key.code)
+
+        when {
+            key.code == KeyEvent.KEYCODE_DEL || key.code == KeyEvent.KEYCODE_ENTER || 
+            key.code == KeyEvent.KEYCODE_DPAD_LEFT || key.code == KeyEvent.KEYCODE_DPAD_RIGHT || 
+            key.code == KeyEvent.KEYCODE_DPAD_UP || key.code == KeyEvent.KEYCODE_DPAD_DOWN ||
+            key.code == KeyEvent.KEYCODE_ESCAPE || key.code == KeyEvent.KEYCODE_TAB -> {
+                dispatcher?.sendKeyUp(key.code)
+            }
+            key.type == KeyType.MODIFIER -> {
+                dispatcher?.sendKeyUp(key.code)
+            }
+            key.label != "SPACE" && key.label != "EN" -> {
+                dispatcher?.sendKeyUp(key.code)
+                // If it's a character key and no modifiers are active, we should commit text explicitly
+                val noModifiers = ModifierState.getModifierMask() == 0
+                if (key.code == KeyEvent.KEYCODE_UNKNOWN || (noModifiers && key.label.length == 1)) {
+                    // Decide case based on shift state
+                    val isShifted = ModifierState.shiftPressed || ModifierState.capsLockEnabled
+                    val textToCommit = if (key.label.length == 1) {
+                        if (isShifted) key.label.uppercase() else key.label.lowercase()
+                    } else {
+                        key.label
+                    }
+                    dispatcher?.sendText(textToCommit)
+                }
+            }
         }
     }
     
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = MeasureSpec.getSize(widthMeasureSpec)
-        val height = (width * 0.70f).toInt() // Standard keyboard aspect ratio approx
+        var width = MeasureSpec.getSize(widthMeasureSpec)
+        if (width == 0) {
+            width = context.resources.displayMetrics.widthPixels
+        }
+        val height = (width * 0.70f).toInt()
         setMeasuredDimension(width, height)
     }
     
