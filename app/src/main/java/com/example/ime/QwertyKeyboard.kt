@@ -1,5 +1,9 @@
 package com.example.ime
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.ui.draw.scale
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -354,9 +358,19 @@ fun KeyboardKey(
         else -> Color.LightGray
     }
 
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.90f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "keyScale"
+    )
+
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .scale(scale)
             .background(bgColor, RoundedCornerShape(6.dp))
             .pointerInput(Unit) {
                 detectTapGestures(

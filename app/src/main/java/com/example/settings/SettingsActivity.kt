@@ -462,6 +462,15 @@ fun SettingsScreen(innerPadding: PaddingValues) {
     var showShortcuts by remember { mutableStateOf(false) }
     var showHaptics by remember { mutableStateOf(false) }
     var showRemap by remember { mutableStateOf(false) }
+    var showDiagnostics by remember { mutableStateOf(false) }
+
+    if (showDiagnostics) {
+        DiagnosticScreen(
+            innerPadding = innerPadding,
+            onBack = { showDiagnostics = false }
+        )
+        return
+    }
 
     if (showShortcuts) {
         ShortcutsScreen(
@@ -612,6 +621,8 @@ fun SettingsScreen(innerPadding: PaddingValues) {
             
             Spacer(modifier = Modifier.height(16.dp))
             SettingsSectionCard("Advanced") {
+                SettingsItem("Diagnostic Dashboard", "View Key Press Heatmap", onClick = { showDiagnostics = true })
+                Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 SettingsItem("Key Remapping", "Configure...", onClick = { showRemap = true })
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 SettingsItem("Shortcuts Engine", "Manage Profiles & Macros", onClick = { showShortcuts = true })

@@ -20,8 +20,25 @@ object ModifierState {
 
     val activeKeys = androidx.compose.runtime.mutableStateListOf<Int>()
     val debugLogs = androidx.compose.runtime.mutableStateListOf<String>()
+    val keyPressFrequencies = androidx.compose.runtime.mutableStateMapOf<String, Int>()
+    var firstKeyPressTime by androidx.compose.runtime.mutableStateOf(0L)
+    val keystrokeTimestamps = androidx.compose.runtime.mutableStateListOf<Long>()
+
+    fun recordKeyPress(keyName: String) {
+        val now = System.currentTimeMillis()
+        if (firstKeyPressTime == 0L) {
+            firstKeyPressTime = now
+        }
+        val currentCount = keyPressFrequencies[keyName] ?: 0
+        keyPressFrequencies[keyName] = currentCount + 1
+        
+        keystrokeTimestamps.add(now)
+        val thirtySecondsAgo = now - 30_000
+        keystrokeTimestamps.removeAll { it < thirtySecondsAgo }
+    }
 
     fun log(message: String) {
+        recordKeyPress(message)
         debugLogs.add(message)
         if (debugLogs.size > 10) {
             debugLogs.removeAt(0)

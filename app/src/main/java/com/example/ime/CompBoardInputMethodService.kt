@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -313,6 +314,44 @@ class CompBoardInputMethodService : InputMethodService() {
                         }
                         
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                            
+                            // WPM Gauge Overlay
+                            androidx.compose.runtime.LaunchedEffect(Unit) {
+                                while (true) {
+                                    kotlinx.coroutines.delay(1000)
+                                    val now = System.currentTimeMillis()
+                                    val thirtySecondsAgo = now - 30_000
+                                    ModifierState.keystrokeTimestamps.removeAll { it < thirtySecondsAgo }
+                                }
+                            }
+                            
+                            val wpm = (ModifierState.keystrokeTimestamps.size / 5.0f) * 2f
+                            
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(top = 32.dp, start = 8.dp)
+                                    .background(Color.Black.copy(alpha = 0.5f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    val gaugeColor = when {
+                                        wpm > 80 -> Color.Green
+                                        wpm > 40 -> Color.Yellow
+                                        else -> Color.LightGray
+                                    }
+                                    androidx.compose.foundation.Canvas(modifier = Modifier.size(8.dp)) {
+                                        drawCircle(color = gaugeColor)
+                                    }
+                                    androidx.compose.material3.Text(
+                                        text = "${wpm.toInt()} WPM",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    )
+                                }
+                            }
+
                             // Debug Log Overlay
                         if (ModifierState.debugLogs.isNotEmpty()) {
                             Box(
