@@ -26,9 +26,14 @@ data class KeyboardKeyInfo(
     val isAccent: Boolean = false
 )
 
+enum class KeyboardLayoutType {
+    QWERTY, DVORAK, COLEMAK
+}
+
 @Composable
-fun QwertyKeyboard(
+fun VirtualKeyboard(
     modifier: Modifier = Modifier,
+    layoutType: KeyboardLayoutType = KeyboardLayoutType.QWERTY,
     onKeyPress: (KeyboardKeyInfo) -> Unit
 ) {
     val fRow = listOf(
@@ -65,7 +70,7 @@ fun QwertyKeyboard(
         KeyboardKeyInfo("⌫", "", KeyEvent.KEYCODE_DEL, weight = 2f, isAccent = true)
     )
 
-    val qwertyRow = listOf(
+    val qwertyRow1 = listOf(
         KeyboardKeyInfo("Tab", "", KeyEvent.KEYCODE_TAB, weight = 1.5f, isModifier = true),
         KeyboardKeyInfo("Q", "", KeyEvent.KEYCODE_Q),
         KeyboardKeyInfo("W", "", KeyEvent.KEYCODE_W),
@@ -82,7 +87,7 @@ fun QwertyKeyboard(
         KeyboardKeyInfo("\\", "|", KeyEvent.KEYCODE_BACKSLASH, weight = 1.5f)
     )
 
-    val homeRow = listOf(
+    val qwertyRow2 = listOf(
         KeyboardKeyInfo("Caps", "", KeyEvent.KEYCODE_CAPS_LOCK, weight = 1.8f, isModifier = true),
         KeyboardKeyInfo("A", "", KeyEvent.KEYCODE_A),
         KeyboardKeyInfo("S", "", KeyEvent.KEYCODE_S),
@@ -98,7 +103,7 @@ fun QwertyKeyboard(
         KeyboardKeyInfo("Enter", "", KeyEvent.KEYCODE_ENTER, weight = 2.2f, isAccent = true)
     )
 
-    val shiftRow = listOf(
+    val qwertyRow3 = listOf(
         KeyboardKeyInfo("Shift", "", KeyEvent.KEYCODE_SHIFT_LEFT, weight = 2.3f, isModifier = true),
         KeyboardKeyInfo("Z", "", KeyEvent.KEYCODE_Z),
         KeyboardKeyInfo("X", "", KeyEvent.KEYCODE_X),
@@ -112,6 +117,120 @@ fun QwertyKeyboard(
         KeyboardKeyInfo("/", "?", KeyEvent.KEYCODE_SLASH),
         KeyboardKeyInfo("Shift", "", KeyEvent.KEYCODE_SHIFT_RIGHT, weight = 2.7f, isModifier = true)
     )
+
+    val dvorakRow1 = listOf(
+        KeyboardKeyInfo("Tab", "", KeyEvent.KEYCODE_TAB, weight = 1.5f, isModifier = true),
+        KeyboardKeyInfo("'", "\"", KeyEvent.KEYCODE_APOSTROPHE),
+        KeyboardKeyInfo(",", "<", KeyEvent.KEYCODE_COMMA),
+        KeyboardKeyInfo(".", ">", KeyEvent.KEYCODE_PERIOD),
+        KeyboardKeyInfo("P", "", KeyEvent.KEYCODE_P),
+        KeyboardKeyInfo("Y", "", KeyEvent.KEYCODE_Y),
+        KeyboardKeyInfo("F", "", KeyEvent.KEYCODE_F),
+        KeyboardKeyInfo("G", "", KeyEvent.KEYCODE_G),
+        KeyboardKeyInfo("C", "", KeyEvent.KEYCODE_C),
+        KeyboardKeyInfo("R", "", KeyEvent.KEYCODE_R),
+        KeyboardKeyInfo("L", "", KeyEvent.KEYCODE_L),
+        KeyboardKeyInfo("/", "?", KeyEvent.KEYCODE_SLASH),
+        KeyboardKeyInfo("=", "+", KeyEvent.KEYCODE_EQUALS),
+        KeyboardKeyInfo("\\", "|", KeyEvent.KEYCODE_BACKSLASH, weight = 1.5f)
+    )
+
+    val dvorakRow2 = listOf(
+        KeyboardKeyInfo("Caps", "", KeyEvent.KEYCODE_CAPS_LOCK, weight = 1.8f, isModifier = true),
+        KeyboardKeyInfo("A", "", KeyEvent.KEYCODE_A),
+        KeyboardKeyInfo("O", "", KeyEvent.KEYCODE_O),
+        KeyboardKeyInfo("E", "", KeyEvent.KEYCODE_E),
+        KeyboardKeyInfo("U", "", KeyEvent.KEYCODE_U),
+        KeyboardKeyInfo("I", "", KeyEvent.KEYCODE_I),
+        KeyboardKeyInfo("D", "", KeyEvent.KEYCODE_D),
+        KeyboardKeyInfo("H", "", KeyEvent.KEYCODE_H),
+        KeyboardKeyInfo("T", "", KeyEvent.KEYCODE_T),
+        KeyboardKeyInfo("N", "", KeyEvent.KEYCODE_N),
+        KeyboardKeyInfo("S", "", KeyEvent.KEYCODE_S),
+        KeyboardKeyInfo("-", "_", KeyEvent.KEYCODE_MINUS),
+        KeyboardKeyInfo("Enter", "", KeyEvent.KEYCODE_ENTER, weight = 2.2f, isAccent = true)
+    )
+
+    val dvorakRow3 = listOf(
+        KeyboardKeyInfo("Shift", "", KeyEvent.KEYCODE_SHIFT_LEFT, weight = 2.3f, isModifier = true),
+        KeyboardKeyInfo(";", ":", KeyEvent.KEYCODE_SEMICOLON),
+        KeyboardKeyInfo("Q", "", KeyEvent.KEYCODE_Q),
+        KeyboardKeyInfo("J", "", KeyEvent.KEYCODE_J),
+        KeyboardKeyInfo("K", "", KeyEvent.KEYCODE_K),
+        KeyboardKeyInfo("X", "", KeyEvent.KEYCODE_X),
+        KeyboardKeyInfo("B", "", KeyEvent.KEYCODE_B),
+        KeyboardKeyInfo("M", "", KeyEvent.KEYCODE_M),
+        KeyboardKeyInfo("W", "", KeyEvent.KEYCODE_W),
+        KeyboardKeyInfo("V", "", KeyEvent.KEYCODE_V),
+        KeyboardKeyInfo("Z", "", KeyEvent.KEYCODE_Z),
+        KeyboardKeyInfo("Shift", "", KeyEvent.KEYCODE_SHIFT_RIGHT, weight = 2.7f, isModifier = true)
+    )
+
+    val colemakRow1 = listOf(
+        KeyboardKeyInfo("Tab", "", KeyEvent.KEYCODE_TAB, weight = 1.5f, isModifier = true),
+        KeyboardKeyInfo("Q", "", KeyEvent.KEYCODE_Q),
+        KeyboardKeyInfo("W", "", KeyEvent.KEYCODE_W),
+        KeyboardKeyInfo("F", "", KeyEvent.KEYCODE_F),
+        KeyboardKeyInfo("P", "", KeyEvent.KEYCODE_P),
+        KeyboardKeyInfo("G", "", KeyEvent.KEYCODE_G),
+        KeyboardKeyInfo("J", "", KeyEvent.KEYCODE_J),
+        KeyboardKeyInfo("L", "", KeyEvent.KEYCODE_L),
+        KeyboardKeyInfo("U", "", KeyEvent.KEYCODE_U),
+        KeyboardKeyInfo("Y", "", KeyEvent.KEYCODE_Y),
+        KeyboardKeyInfo(";", ":", KeyEvent.KEYCODE_SEMICOLON),
+        KeyboardKeyInfo("[", "{", KeyEvent.KEYCODE_LEFT_BRACKET),
+        KeyboardKeyInfo("]", "}", KeyEvent.KEYCODE_RIGHT_BRACKET),
+        KeyboardKeyInfo("\\", "|", KeyEvent.KEYCODE_BACKSLASH, weight = 1.5f)
+    )
+
+    val colemakRow2 = listOf(
+        KeyboardKeyInfo("Caps", "", KeyEvent.KEYCODE_CAPS_LOCK, weight = 1.8f, isModifier = true),
+        KeyboardKeyInfo("A", "", KeyEvent.KEYCODE_A),
+        KeyboardKeyInfo("R", "", KeyEvent.KEYCODE_R),
+        KeyboardKeyInfo("S", "", KeyEvent.KEYCODE_S),
+        KeyboardKeyInfo("T", "", KeyEvent.KEYCODE_T),
+        KeyboardKeyInfo("D", "", KeyEvent.KEYCODE_D),
+        KeyboardKeyInfo("H", "", KeyEvent.KEYCODE_H),
+        KeyboardKeyInfo("N", "", KeyEvent.KEYCODE_N),
+        KeyboardKeyInfo("E", "", KeyEvent.KEYCODE_E),
+        KeyboardKeyInfo("I", "", KeyEvent.KEYCODE_I),
+        KeyboardKeyInfo("O", "", KeyEvent.KEYCODE_O),
+        KeyboardKeyInfo("'", "\"", KeyEvent.KEYCODE_APOSTROPHE),
+        KeyboardKeyInfo("Enter", "", KeyEvent.KEYCODE_ENTER, weight = 2.2f, isAccent = true)
+    )
+
+    val colemakRow3 = listOf(
+        KeyboardKeyInfo("Shift", "", KeyEvent.KEYCODE_SHIFT_LEFT, weight = 2.3f, isModifier = true),
+        KeyboardKeyInfo("Z", "", KeyEvent.KEYCODE_Z),
+        KeyboardKeyInfo("X", "", KeyEvent.KEYCODE_X),
+        KeyboardKeyInfo("C", "", KeyEvent.KEYCODE_C),
+        KeyboardKeyInfo("V", "", KeyEvent.KEYCODE_V),
+        KeyboardKeyInfo("B", "", KeyEvent.KEYCODE_B),
+        KeyboardKeyInfo("K", "", KeyEvent.KEYCODE_K),
+        KeyboardKeyInfo("M", "", KeyEvent.KEYCODE_M),
+        KeyboardKeyInfo(",", "<", KeyEvent.KEYCODE_COMMA),
+        KeyboardKeyInfo(".", ">", KeyEvent.KEYCODE_PERIOD),
+        KeyboardKeyInfo("/", "?", KeyEvent.KEYCODE_SLASH),
+        KeyboardKeyInfo("Shift", "", KeyEvent.KEYCODE_SHIFT_RIGHT, weight = 2.7f, isModifier = true)
+    )
+
+    val topRow = when(layoutType) {
+        KeyboardLayoutType.DVORAK -> dvorakRow1
+        KeyboardLayoutType.COLEMAK -> colemakRow1
+        else -> qwertyRow1
+    }
+    
+    val midRow = when(layoutType) {
+        KeyboardLayoutType.DVORAK -> dvorakRow2
+        KeyboardLayoutType.COLEMAK -> colemakRow2
+        else -> qwertyRow2
+    }
+    
+    val botRow = when(layoutType) {
+        KeyboardLayoutType.DVORAK -> dvorakRow3
+        KeyboardLayoutType.COLEMAK -> colemakRow3
+        else -> qwertyRow3
+    }
 
     val bottomRow = listOf(
         KeyboardKeyInfo("Ctrl", "", KeyEvent.KEYCODE_CTRL_LEFT, weight = 1.5f, isModifier = true),
@@ -132,9 +251,9 @@ fun QwertyKeyboard(
     ) {
         KeyboardRow(fRow, onKeyPress, modifier = Modifier.weight(0.8f))
         KeyboardRow(numRow, onKeyPress, modifier = Modifier.weight(1f))
-        KeyboardRow(qwertyRow, onKeyPress, modifier = Modifier.weight(1f))
-        KeyboardRow(homeRow, onKeyPress, modifier = Modifier.weight(1f))
-        KeyboardRow(shiftRow, onKeyPress, modifier = Modifier.weight(1f))
+        KeyboardRow(topRow, onKeyPress, modifier = Modifier.weight(1f))
+        KeyboardRow(midRow, onKeyPress, modifier = Modifier.weight(1f))
+        KeyboardRow(botRow, onKeyPress, modifier = Modifier.weight(1f))
         
         Row(
             modifier = Modifier

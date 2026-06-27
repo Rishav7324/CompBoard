@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -112,10 +113,17 @@ class CompBoardInputMethodService : InputMethodService() {
                     (displayMetrics.widthPixels * 0.70f).toDp()
                 }
                 
+                var currentLayoutType by remember {
+                    val prefs = getSharedPreferences("layout_prefs", android.content.Context.MODE_PRIVATE)
+                    val savedLayout = prefs.getString("current_layout", "QWERTY") ?: "QWERTY"
+                    mutableStateOf(KeyboardLayoutType.valueOf(savedLayout))
+                }
+                
                 MyApplicationTheme {
                     Box(modifier = Modifier.fillMaxWidth().height(keyboardHeightDp)) {
-                        QwertyKeyboard(
+                        VirtualKeyboard(
                             modifier = Modifier.fillMaxSize(),
+                            layoutType = currentLayoutType,
                             onKeyPress = { keyInfo ->
                                 val prefs = getSharedPreferences("haptics_prefs", android.content.Context.MODE_PRIVATE)
                                 if (prefs.getBoolean("haptics_enabled", true)) {
@@ -241,10 +249,23 @@ class CompBoardInputMethodService : InputMethodService() {
                                             color = MaterialTheme.colorScheme.surfaceVariant,
                                             shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                                         )
+                                        .clickable {
+                                            val nextLayout = when(currentLayoutType) {
+                                                KeyboardLayoutType.QWERTY -> KeyboardLayoutType.DVORAK
+                                                KeyboardLayoutType.DVORAK -> KeyboardLayoutType.COLEMAK
+                                                KeyboardLayoutType.COLEMAK -> KeyboardLayoutType.QWERTY
+                                                else -> KeyboardLayoutType.QWERTY
+                                            }
+                                            currentLayoutType = nextLayout
+                                            getSharedPreferences("layout_prefs", android.content.Context.MODE_PRIVATE)
+                                                .edit()
+                                                .putString("current_layout", nextLayout.name)
+                                                .apply()
+                                        }
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     androidx.compose.material3.Text(
-                                        text = "QWERTY",
+                                        text = currentLayoutType.name,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)
@@ -302,7 +323,40 @@ class CompBoardInputMethodService : InputMethodService() {
                                     .padding(8.dp)
                             ) {
                                 Column {
-                                    androidx.compose.material3.Text("Debug Log", color = Color.Gray, fontSize = 10.sp)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(0.3f),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        androidx.compose.material3.Text("Debug Log", color = Color.Gray, fontSize = 10.sp)
+                                        androidx.compose.material3.IconButton(
+                                            onClick = {
+                                                val textContent = ModifierState.debugLogs.joinToString("\n")
+                                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                                    val resolver = contentResolver
+                                                    val contentValues = android.content.ContentValues().apply {
+                                                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "keyboard_log_${System.currentTimeMillis()}.txt")
+                                                        put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                                                        put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                                                    }
+                                                    val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                                                    if (uri != null) {
+                                                        resolver.openOutputStream(uri)?.use { outputStream ->
+                                                            outputStream.write(textContent.toByteArray())
+                                                        }
+                                                        android.widget.Toast.makeText(this@CompBoardInputMethodService, "Log downloaded to Downloads folder", android.widget.Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } else {
+                                                    val file = java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "keyboard_log_${System.currentTimeMillis()}.txt")
+                                                    file.writeText(textContent)
+                                                    android.widget.Toast.makeText(this@CompBoardInputMethodService, "Log downloaded to App Downloads folder", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            modifier = Modifier.padding(2.dp)
+                                        ) {
+                                            androidx.compose.material3.Text("DL", fontSize=10.sp, color=Color.Gray)
+                                        }
+                                    }
                                     ModifierState.debugLogs.forEach { logMsg ->
                                         androidx.compose.material3.Text(
                                             text = logMsg,
