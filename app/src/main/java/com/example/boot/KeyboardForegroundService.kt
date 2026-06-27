@@ -10,7 +10,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.example.MainActivity
+import com.example.settings.SettingsActivity
 
 class KeyboardForegroundService : Service() {
     
@@ -25,7 +25,7 @@ class KeyboardForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notificationIntent = Intent(this, MainActivity::class.java)
+        val notificationIntent = Intent(this, SettingsActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
