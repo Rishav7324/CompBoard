@@ -1,6 +1,8 @@
 package com.example.ime
 
 import android.view.KeyEvent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.example.data.ShortcutEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -9,14 +11,25 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 object ModifierState {
-    var ctrlPressed = false
-    var shiftPressed = false
-    var altPressed = false
-    var metaPressed = false
-    var capsLockEnabled = false
-    var numLockEnabled = false
+    var ctrlPressed by androidx.compose.runtime.mutableStateOf(false)
+    var shiftPressed by androidx.compose.runtime.mutableStateOf(false)
+    var altPressed by androidx.compose.runtime.mutableStateOf(false)
+    var metaPressed by androidx.compose.runtime.mutableStateOf(false)
+    var capsLockEnabled by androidx.compose.runtime.mutableStateOf(false)
+    var numLockEnabled by androidx.compose.runtime.mutableStateOf(false)
+
+    val activeKeys = androidx.compose.runtime.mutableStateListOf<Int>()
+    val debugLogs = androidx.compose.runtime.mutableStateListOf<String>()
+
+    fun log(message: String) {
+        debugLogs.add(message)
+        if (debugLogs.size > 10) {
+            debugLogs.removeAt(0)
+        }
+    }
 
     fun getModifierMask(): Int {
+
         var mask = 0
         if (ctrlPressed) mask = mask or KeyEvent.META_CTRL_ON
         if (shiftPressed) mask = mask or KeyEvent.META_SHIFT_ON
@@ -47,6 +60,11 @@ class ShortcutManager(private val dispatcher: KeyEventDispatcher) {
      */
     fun handleKeyDown(keyCode: Int): Boolean {
         updateModifierState(keyCode, true)
+
+        if (keyCode == android.view.KeyEvent.KEYCODE_CAPS_LOCK) {
+            ModifierState.capsLockEnabled = !ModifierState.capsLockEnabled
+            return true
+        }
 
         if (isModifier(keyCode)) return false // Don't trigger shortcuts just on modifier press
 

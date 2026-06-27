@@ -460,11 +460,29 @@ fun SetupStepCard(
 fun SettingsScreen(innerPadding: PaddingValues) {
     val context = LocalContext.current
     var showShortcuts by remember { mutableStateOf(false) }
+    var showHaptics by remember { mutableStateOf(false) }
+    var showRemap by remember { mutableStateOf(false) }
 
     if (showShortcuts) {
         ShortcutsScreen(
             innerPadding = innerPadding,
             onBack = { showShortcuts = false }
+        )
+        return
+    }
+
+    if (showHaptics) {
+        HapticsScreen(
+            innerPadding = innerPadding,
+            onBack = { showHaptics = false }
+        )
+        return
+    }
+
+    if (showRemap) {
+        RemapScreen(
+            innerPadding = innerPadding,
+            onBack = { showRemap = false }
         )
         return
     }
@@ -587,14 +605,14 @@ fun SettingsScreen(innerPadding: PaddingValues) {
             
             Spacer(modifier = Modifier.height(16.dp))
             SettingsSectionCard("Haptic & Sound") {
-                SettingsItem("Key Vibration", "Light")
+                SettingsItem("Key Vibration", "Configure...", onClick = { showHaptics = true })
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 SettingsItem("Key Sounds", "None")
             }
             
             Spacer(modifier = Modifier.height(16.dp))
             SettingsSectionCard("Advanced") {
-                SettingsItem("Key Remapping", "Configure...")
+                SettingsItem("Key Remapping", "Configure...", onClick = { showRemap = true })
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 SettingsItem("Shortcuts Engine", "Manage Profiles & Macros", onClick = { showShortcuts = true })
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)

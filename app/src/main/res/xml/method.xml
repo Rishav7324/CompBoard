@@ -4,7 +4,7 @@
     android:supportsSwitchingToNextInputMethod="true"
     android:isDefault="false">
     <subtype
-        android:label="PC Keyboard"
+        android:label="@string/subtype_name"
         android:imeSubtypeLocale="en_US"
         android:imeSubtypeMode="keyboard" />
 </input-method>

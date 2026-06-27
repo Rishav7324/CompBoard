@@ -337,6 +337,57 @@ class KeyboardView(context: Context) : View(context) {
                 canvas.drawText(key.label, drawRect.centerX(), drawRect.centerY() + textPaintPrimary.textSize / 3, textPaintPrimary)
             }
         }
+        
+        // Draw popups for active keys on top
+        for (key in activePointers.values) {
+            if (key == null || key.type == KeyType.MODIFIER || key.label.length > 1) continue
+            
+            val cx = key.rect.centerX()
+            val cy = key.rect.centerY()
+            val pw = key.rect.width() * 1.5f
+            val ph = key.rect.height() * 1.8f
+            val popupRect = RectF(cx - pw/2, cy - ph, cx + pw/2, cy)
+            
+            val radius = 12f * resources.displayMetrics.density
+            
+            // Popup shadow
+            val shadowRect = RectF(popupRect.left, popupRect.top + 4f * resources.displayMetrics.density, popupRect.right, popupRect.bottom + 4f * resources.displayMetrics.density)
+            val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#40000000") }
+            canvas.drawRoundRect(shadowRect, radius, radius, shadowPaint)
+            
+            // Popup body
+            val popupPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colorKeyActive }
+            canvas.drawRoundRect(popupRect, radius, radius, popupPaint)
+            
+            // Draw connecting shape to key
+            val path = android.graphics.Path()
+            path.moveTo(cx - key.rect.width()/2, cy)
+            path.lineTo(cx - pw/2 + radius, cy)
+            path.lineTo(cx - pw/2, cy - radius)
+            path.lineTo(cx + pw/2, cy - radius)
+            path.lineTo(cx + pw/2 - radius, cy)
+            path.lineTo(cx + key.rect.width()/2, cy)
+            path.close()
+            // Just a simple overlay
+            
+            // Popup text
+            val isShifted = ModifierState.shiftPressed || ModifierState.capsLockEnabled
+            val displayChar = if (key.label.length == 1 && key.label[0] in 'A'..'Z') {
+                if (isShifted) key.label.uppercase() else key.label.lowercase()
+            } else if (isShifted && key.secondaryLabel.isNotEmpty()) {
+                key.secondaryLabel
+            } else {
+                key.label
+            }
+            
+            val popupTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = textPaintPrimary.textSize * 1.8f
+                textAlign = Paint.Align.CENTER
+                typeface = textPaintPrimary.typeface
+            }
+            canvas.drawText(displayChar, popupRect.centerX(), popupRect.centerY() + popupTextPaint.textSize/3, popupTextPaint)
+        }
     }
     
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -418,6 +469,7 @@ class KeyboardView(context: Context) : View(context) {
     }
     
     private fun handleKeyDown(key: Key) {
+        performCustomHapticFeedback()
         // Start repeat engine
         val runnable = object : Runnable {
             override fun run() {
@@ -492,16 +544,37 @@ class KeyboardView(context: Context) : View(context) {
             key.label != "SPACE" && key.label != "EN" -> {
                 dispatcher?.sendKeyUp(key.code)
                 // If it's a character key and no modifiers are active, we should commit text explicitly
-                val noModifiers = ModifierState.getModifierMask() == 0
+                val noModifiers = ModifierState.ctrlPressed == false && ModifierState.altPressed == false && ModifierState.metaPressed == false
                 if (key.code == KeyEvent.KEYCODE_UNKNOWN || (noModifiers && key.label.length == 1)) {
-                    // Decide case based on shift state
                     val isShifted = ModifierState.shiftPressed || ModifierState.capsLockEnabled
+                    
                     val textToCommit = if (key.label.length == 1) {
-                        if (isShifted) key.label.uppercase() else key.label.lowercase()
+                        val char = key.label[0]
+                        if (char in 'A'..'Z') {
+                            if (isShifted) char.uppercaseChar().toString() else char.lowercaseChar().toString()
+                        } else {
+                            if (ModifierState.shiftPressed) {
+                                val shiftMap = mapOf(
+                                    '`' to '~', '1' to '!', '2' to '@', '3' to '#', '4' to '$', '5' to '%',
+                                    '6' to '^', '7' to '&', '8' to '*', '9' to '(', '0' to ')',
+                                    '-' to '_', '=' to '+', '[' to '{', ']' to '}', '\\' to '|',
+                                    ';' to ':', '\'' to '"', ',' to '<', '.' to '>', '/' to '?'
+                                )
+                                shiftMap[char]?.toString() ?: char.toString()
+                            } else {
+                                char.toString()
+                            }
+                        }
                     } else {
                         key.label
                     }
+                    
                     dispatcher?.sendText(textToCommit)
+                    
+                    if (ModifierState.shiftPressed && !ModifierState.capsLockEnabled) {
+                        ModifierState.shiftPressed = false
+                        invalidate()
+                    }
                 }
             }
         }
@@ -514,6 +587,26 @@ class KeyboardView(context: Context) : View(context) {
         }
         val height = (width * 0.70f).toInt()
         setMeasuredDimension(width, height)
+    }
+
+    private fun performCustomHapticFeedback() {
+        val prefs = context.getSharedPreferences("haptics_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("haptics_enabled", true)) return
+        
+        val durationMs = prefs.getFloat("haptics_duration", 20f).toLong()
+        val intensity = prefs.getFloat("haptics_intensity", 0.5f)
+        
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        if (vibrator.hasVibrator()) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                // intensity is 0..1, convert to 1..255
+                val amplitude = (intensity * 255).toInt().coerceIn(1, 255)
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(durationMs, amplitude))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(durationMs)
+            }
+        }
     }
     
     enum class KeyType { NORMAL, MODIFIER, ACCENT, DANGER }

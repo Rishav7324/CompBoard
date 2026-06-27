@@ -28,6 +28,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -113,9 +114,105 @@ class CompBoardInputMethodService : InputMethodService() {
                 
                 MyApplicationTheme {
                     Box(modifier = Modifier.fillMaxWidth().height(keyboardHeightDp)) {
-                        androidx.compose.ui.viewinterop.AndroidView(
-                            factory = { keyboardView },
-                            modifier = Modifier.fillMaxSize()
+                        QwertyKeyboard(
+                            modifier = Modifier.fillMaxSize(),
+                            onKeyPress = { keyInfo ->
+                                val prefs = getSharedPreferences("haptics_prefs", android.content.Context.MODE_PRIVATE)
+                                if (prefs.getBoolean("haptics_enabled", true)) {
+                                    val durationMs = prefs.getFloat("haptics_duration", 20f).toLong()
+                                    val intensity = prefs.getFloat("haptics_intensity", 0.5f)
+                                    val vibrator = getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                                    if (vibrator.hasVibrator()) {
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                            val amplitude = (intensity * 255).toInt().coerceIn(1, 255)
+                                            vibrator.vibrate(android.os.VibrationEffect.createOneShot(durationMs, amplitude))
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            vibrator.vibrate(durationMs)
+                                        }
+                                    }
+                                }
+
+                                when {
+                                    keyInfo.label == "SPACE" || keyInfo.label == "EN" -> {
+                                        dispatcher.sendText(" ")
+                                        ModifierState.log("SPACE")
+                                    }
+                                    keyInfo.code == KeyEvent.KEYCODE_DEL || keyInfo.code == KeyEvent.KEYCODE_ENTER || 
+                                    keyInfo.code == KeyEvent.KEYCODE_DPAD_LEFT || keyInfo.code == KeyEvent.KEYCODE_DPAD_RIGHT || 
+                                    keyInfo.code == KeyEvent.KEYCODE_DPAD_UP || keyInfo.code == KeyEvent.KEYCODE_DPAD_DOWN ||
+                                    keyInfo.code == KeyEvent.KEYCODE_ESCAPE || keyInfo.code == KeyEvent.KEYCODE_TAB -> {
+                                        dispatcher.sendKeyDown(keyInfo.code)
+                                        dispatcher.sendKeyUp(keyInfo.code)
+                                        ModifierState.log(keyInfo.label)
+                                    }
+                                    keyInfo.isModifier -> {
+                                        when (keyInfo.code) {
+                                            KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> {
+                                                if (ModifierState.ctrlPressed) dispatcher.sendKeyUp(keyInfo.code)
+                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.log(keyInfo.label)
+                                            }
+                                            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> {
+                                                if (ModifierState.shiftPressed) dispatcher.sendKeyUp(keyInfo.code)
+                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.log(keyInfo.label)
+                                            }
+                                            KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT -> {
+                                                if (ModifierState.altPressed) dispatcher.sendKeyUp(keyInfo.code)
+                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.log(keyInfo.label)
+                                            }
+                                            KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT -> {
+                                                if (ModifierState.metaPressed) dispatcher.sendKeyUp(keyInfo.code)
+                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.log(keyInfo.label)
+                                            }
+                                            KeyEvent.KEYCODE_CAPS_LOCK -> {
+                                                dispatcher.sendKeyDown(keyInfo.code)
+                                                dispatcher.sendKeyUp(keyInfo.code)
+                                                ModifierState.log(keyInfo.label)
+                                            }
+                                        }
+                                    }
+                                    else -> {
+                                        dispatcher.sendKeyDown(keyInfo.code)
+                                        dispatcher.sendKeyUp(keyInfo.code)
+                                        
+                                        val noModifiers = ModifierState.ctrlPressed == false && ModifierState.altPressed == false && ModifierState.metaPressed == false
+                                        if (keyInfo.code == KeyEvent.KEYCODE_UNKNOWN || (noModifiers && keyInfo.label.length == 1)) {
+                                            val isShifted = ModifierState.shiftPressed || ModifierState.capsLockEnabled
+                                            val textToCommit = if (keyInfo.label.length == 1) {
+                                                val char = keyInfo.label[0]
+                                                if (char in 'A'..'Z') {
+                                                    if (isShifted) char.uppercaseChar().toString() else char.lowercaseChar().toString()
+                                                } else {
+                                                    if (ModifierState.shiftPressed) {
+                                                        val shiftMap = mapOf(
+                                                            '`' to '~', '1' to '!', '2' to '@', '3' to '#', '4' to '$', '5' to '%',
+                                                            '6' to '^', '7' to '&', '8' to '*', '9' to '(', '0' to ')',
+                                                            '-' to '_', '=' to '+', '[' to '{', ']' to '}', '\\' to '|',
+                                                            ';' to ':', '\'' to '"', ',' to '<', '.' to '>', '/' to '?'
+                                                        )
+                                                        shiftMap[char]?.toString() ?: char.toString()
+                                                    } else {
+                                                        char.toString()
+                                                    }
+                                                }
+                                            } else {
+                                                keyInfo.label
+                                            }
+                                            dispatcher.sendText(textToCommit)
+                                            ModifierState.log(textToCommit)
+                                            
+                                            if (ModifierState.shiftPressed && !ModifierState.capsLockEnabled) {
+                                                ModifierState.shiftPressed = false
+                                                // Trigger recomposition if needed
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         )
                         
                         // Top Status Bar (Toolbar) overlay
@@ -195,7 +292,30 @@ class CompBoardInputMethodService : InputMethodService() {
                         }
                         
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                            AnimatedVisibility(
+                            // Debug Log Overlay
+                        if (ModifierState.debugLogs.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 32.dp, end = 8.dp)
+                                    .background(Color.Black.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                    .padding(8.dp)
+                            ) {
+                                Column {
+                                    androidx.compose.material3.Text("Debug Log", color = Color.Gray, fontSize = 10.sp)
+                                    ModifierState.debugLogs.forEach { logMsg ->
+                                        androidx.compose.material3.Text(
+                                            text = logMsg,
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        AnimatedVisibility(
                                 visible = showClipboardPanel,
                                 enter = slideInVertically(initialOffsetY = { it }),
                                 exit = slideOutVertically(targetOffsetY = { it })
@@ -245,6 +365,71 @@ class CompBoardInputMethodService : InputMethodService() {
         showClipboardPanel = false
         lifecycleOwner.onPause()
         lifecycleOwner.onStop()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event != null && !ModifierState.activeKeys.contains(keyCode)) {
+            ModifierState.activeKeys.add(keyCode)
+            ModifierState.log("Physical: $keyCode")
+        }
+        
+        val prefs = getSharedPreferences("remaps_prefs", android.content.Context.MODE_PRIVATE)
+        val remap = prefs.getString(keyCode.toString(), null)
+        if (remap != null) {
+            when {
+                remap.startsWith("CHAR:") -> {
+                    val char = remap.substringAfter("CHAR:")
+                    commitTextToTarget(char)
+                    return true
+                }
+                remap.startsWith("SHORTCUT:") -> {
+                    val shortcut = remap.substringAfter("SHORTCUT:")
+                    if (shortcut == "COPY") {
+                        currentInputConnection?.performContextMenuAction(android.R.id.copy)
+                    } else if (shortcut == "PASTE") {
+                        currentInputConnection?.performContextMenuAction(android.R.id.paste)
+                    } else if (shortcut == "CUT") {
+                        currentInputConnection?.performContextMenuAction(android.R.id.cut)
+                    } else if (shortcut == "HOME") {
+                        sendDownUpKeyEvents(KeyEvent.KEYCODE_HOME)
+                    }
+                    return true
+                }
+                remap.startsWith("KEY:") -> {
+                    val newKeyCode = remap.substringAfter("KEY:").toIntOrNull()
+                    if (newKeyCode != null && event != null) {
+                        val newEvent = KeyEvent(event.downTime, event.eventTime, event.action, newKeyCode, event.repeatCount, event.metaState, event.deviceId, event.scanCode, event.flags, event.source)
+                        return super.onKeyDown(newKeyCode, newEvent)
+                    }
+                }
+            }
+        }
+        
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event != null) {
+            ModifierState.activeKeys.remove(keyCode)
+        }
+        
+        val prefs = getSharedPreferences("remaps_prefs", android.content.Context.MODE_PRIVATE)
+        val remap = prefs.getString(keyCode.toString(), null)
+        if (remap != null) {
+            when {
+                remap.startsWith("CHAR:") -> return true
+                remap.startsWith("SHORTCUT:") -> return true
+                remap.startsWith("KEY:") -> {
+                    val newKeyCode = remap.substringAfter("KEY:").toIntOrNull()
+                    if (newKeyCode != null && event != null) {
+                        val newEvent = KeyEvent(event.downTime, event.eventTime, event.action, newKeyCode, event.repeatCount, event.metaState, event.deviceId, event.scanCode, event.flags, event.source)
+                        return super.onKeyUp(newKeyCode, newEvent)
+                    }
+                }
+            }
+        }
+        
+        return super.onKeyUp(keyCode, event)
     }
 
     override fun onDestroy() {
