@@ -1,0 +1,6 @@
+{
+  "name": "CompBoard PC Keyboard",
+  "description": "A system-level custom keyboard that acts like a full physical PC keyboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

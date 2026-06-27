@@ -1,0 +1,11 @@
+-keep class com.example.ime.** { *; }
+-keep class com.example.accessibility.** { *; }
+-keep class com.example.boot.** { *; }
+-keep class com.example.data.** { *; }
+
+-keep class androidx.room.** { *; }
+-keep class androidx.datastore.** { *; }
+-keep class * extends android.inputmethodservice.InputMethodService
+-keep class * extends android.accessibilityservice.AccessibilityService
+-keep class * extends android.app.Service
+-keep class * extends android.content.BroadcastReceiver

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">CompBoard PC Keyboard</string>
+    <string name="accessibility_service_description">CompBoard Shortcuts Service enables system-wide shortcuts (Alt+Tab, Win+D) and macro recording for the PC keyboard.</string>
+</resources>
