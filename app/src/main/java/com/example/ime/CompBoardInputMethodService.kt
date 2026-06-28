@@ -15,6 +15,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.clipboard.ClipboardHistoryManager
 import com.example.clipboard.ClipboardPanel
 import com.example.ui.theme.MyApplicationTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +56,7 @@ class CompBoardInputMethodService : InputMethodService() {
     private lateinit var lifecycleOwner: IMELifecycleOwner
     private var showClipboardPanel by mutableStateOf(false)
     private val scope = CoroutineScope(Dispatchers.Main)
+    private var currentRemaps: Map<String, String> = emptyMap()
 
     override fun onCreate() {
         super.onCreate()
@@ -62,6 +64,13 @@ class CompBoardInputMethodService : InputMethodService() {
         lifecycleOwner.onCreate()
         clipboardManager = ClipboardHistoryManager(this)
         clipboardManager.startMonitoring()
+        
+        scope.launch {
+            val settingsManager = com.example.settings.SettingsManager(this@CompBoardInputMethodService)
+            settingsManager.remapsFlow.collect { remaps ->
+                currentRemaps = remaps
+            }
+        }
     }
 
     override fun onEvaluateInputViewShown(): Boolean {
@@ -114,10 +123,31 @@ class CompBoardInputMethodService : InputMethodService() {
                     (displayMetrics.widthPixels * 0.70f).toDp()
                 }
                 
+                val settingsManager = remember { com.example.settings.SettingsManager(this@CompBoardInputMethodService) }
+                val layoutFlowStr by settingsManager.layoutFlow.collectAsState(initial = "QWERTY")
                 var currentLayoutType by remember {
-                    val prefs = getSharedPreferences("layout_prefs", android.content.Context.MODE_PRIVATE)
-                    val savedLayout = prefs.getString("current_layout", "QWERTY") ?: "QWERTY"
-                    mutableStateOf(KeyboardLayoutType.valueOf(savedLayout))
+                    mutableStateOf(KeyboardLayoutType.valueOf(layoutFlowStr))
+                }
+                
+                LaunchedEffect(layoutFlowStr) {
+                    try {
+                        currentLayoutType = KeyboardLayoutType.valueOf(layoutFlowStr)
+                    } catch (e: Exception) {
+                        currentLayoutType = KeyboardLayoutType.QWERTY
+                    }
+                }
+
+                val profileFlowStr by settingsManager.profileFlow.collectAsState(initial = "WINDOWS")
+                var currentProfile by remember {
+                    mutableStateOf(KeyboardProfile.valueOf(profileFlowStr))
+                }
+                
+                LaunchedEffect(profileFlowStr) {
+                    try {
+                        currentProfile = KeyboardProfile.valueOf(profileFlowStr)
+                    } catch (e: Exception) {
+                        currentProfile = KeyboardProfile.WINDOWS
+                    }
                 }
                 
                 MyApplicationTheme {
@@ -125,6 +155,7 @@ class CompBoardInputMethodService : InputMethodService() {
                         VirtualKeyboard(
                             modifier = Modifier.fillMaxSize(),
                             layoutType = currentLayoutType,
+                            profile = currentProfile,
                             onKeyPress = { keyInfo ->
                                 val prefs = getSharedPreferences("haptics_prefs", android.content.Context.MODE_PRIVATE)
                                 if (prefs.getBoolean("haptics_enabled", true)) {
@@ -143,8 +174,68 @@ class CompBoardInputMethodService : InputMethodService() {
                                 }
 
                                 when {
-                                    keyInfo.label == "SPACE" || keyInfo.label == "EN" -> {
-                                        dispatcher.sendText(" ")
+                                    keyInfo.label == "Ctrl+P" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_P)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_P)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Ctrl+P")
+                                    }
+                                    keyInfo.label == "Ctrl+Shift+P" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_SHIFT_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_P)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_P)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Ctrl+Shift+P")
+                                    }
+                                    keyInfo.label == "Ctrl+/" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_SLASH)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_SLASH)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Ctrl+/")
+                                    }
+                                    keyInfo.label == "Ctrl+F" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_F)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_F)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Ctrl+F")
+                                    }
+                                    keyInfo.label == "Ctrl+`" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_GRAVE)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_GRAVE)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Ctrl+`")
+                                    }
+                                    keyInfo.label == "Undo" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_Z)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_Z)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Undo")
+                                    }
+                                    keyInfo.label == "Redo" -> {
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        dispatcher.sendKeyDown(KeyEvent.KEYCODE_Y)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_Y)
+                                        dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        ModifierState.log("Redo")
+                                    }
+                                    keyInfo.code == KeyEvent.KEYCODE_SPACE || keyInfo.label == "SPACE" -> {
+                                        val noModifiers = !ModifierState.ctrlPressed && !ModifierState.ctrlLocked && !ModifierState.altPressed && !ModifierState.altLocked && !ModifierState.metaPressed && !ModifierState.metaLocked
+                                        if (noModifiers) {
+                                            dispatcher.sendText(" ")
+                                        } else {
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_SPACE)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_SPACE)
+                                            if (ModifierState.ctrlPressed && !ModifierState.ctrlLocked) { ModifierState.ctrlPressed = false; dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT) }
+                                            if (ModifierState.altPressed && !ModifierState.altLocked) { ModifierState.altPressed = false; dispatcher.sendKeyUp(KeyEvent.KEYCODE_ALT_LEFT) }
+                                            if (ModifierState.metaPressed && !ModifierState.metaLocked) { ModifierState.metaPressed = false; dispatcher.sendKeyUp(KeyEvent.KEYCODE_META_LEFT) }
+                                        }
                                         ModifierState.log("SPACE")
                                     }
                                     keyInfo.code == KeyEvent.KEYCODE_DEL || keyInfo.code == KeyEvent.KEYCODE_ENTER || 
@@ -158,37 +249,66 @@ class CompBoardInputMethodService : InputMethodService() {
                                     keyInfo.isModifier -> {
                                         when (keyInfo.code) {
                                             KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> {
-                                                if (ModifierState.ctrlPressed) dispatcher.sendKeyUp(keyInfo.code)
-                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.ctrlPressed = !ModifierState.ctrlPressed
+                                                if (ModifierState.ctrlPressed) dispatcher.sendKeyDown(keyInfo.code) else dispatcher.sendKeyUp(keyInfo.code)
                                                 ModifierState.log(keyInfo.label)
                                             }
                                             KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> {
-                                                if (ModifierState.shiftPressed) dispatcher.sendKeyUp(keyInfo.code)
-                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.shiftPressed = !ModifierState.shiftPressed
+                                                if (ModifierState.shiftPressed) dispatcher.sendKeyDown(keyInfo.code) else dispatcher.sendKeyUp(keyInfo.code)
                                                 ModifierState.log(keyInfo.label)
                                             }
                                             KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT -> {
-                                                if (ModifierState.altPressed) dispatcher.sendKeyUp(keyInfo.code)
-                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.altPressed = !ModifierState.altPressed
+                                                if (ModifierState.altPressed) dispatcher.sendKeyDown(keyInfo.code) else dispatcher.sendKeyUp(keyInfo.code)
                                                 ModifierState.log(keyInfo.label)
                                             }
                                             KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT -> {
-                                                if (ModifierState.metaPressed) dispatcher.sendKeyUp(keyInfo.code)
-                                                else dispatcher.sendKeyDown(keyInfo.code)
+                                                ModifierState.metaPressed = !ModifierState.metaPressed
+                                                if (ModifierState.metaPressed) dispatcher.sendKeyDown(keyInfo.code) else dispatcher.sendKeyUp(keyInfo.code)
                                                 ModifierState.log(keyInfo.label)
                                             }
                                             KeyEvent.KEYCODE_CAPS_LOCK -> {
+                                                ModifierState.capsLockEnabled = !ModifierState.capsLockEnabled
                                                 dispatcher.sendKeyDown(keyInfo.code)
                                                 dispatcher.sendKeyUp(keyInfo.code)
+                                                ModifierState.log(keyInfo.label)
+                                            }
+                                            KeyEvent.KEYCODE_FUNCTION -> {
                                                 ModifierState.log(keyInfo.label)
                                             }
                                         }
                                     }
                                     else -> {
+                                        val isCtrl = ModifierState.ctrlPressed || ModifierState.ctrlLocked
+                                        val isAlt = ModifierState.altPressed || ModifierState.altLocked
+                                        
+                                        if (keyInfo.code == KeyEvent.KEYCODE_M && isCtrl && isAlt) {
+                                            // Macro: Paste, New Line, Paste Again
+                                            ModifierState.ctrlPressed = true // ensure it's on
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_V)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_V)
+                                            ModifierState.ctrlPressed = false
+                                            
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_ENTER)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_ENTER)
+                                            
+                                            ModifierState.ctrlPressed = true
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_V)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_V)
+                                            
+                                            // Restore modifiers
+                                            ModifierState.ctrlPressed = isCtrl
+                                            
+                                            if (!ModifierState.ctrlLocked) ModifierState.ctrlPressed = false
+                                            if (!ModifierState.altLocked) ModifierState.altPressed = false
+                                            return@VirtualKeyboard
+                                        }
+
                                         dispatcher.sendKeyDown(keyInfo.code)
                                         dispatcher.sendKeyUp(keyInfo.code)
                                         
-                                        val noModifiers = ModifierState.ctrlPressed == false && ModifierState.altPressed == false && ModifierState.metaPressed == false
+                                        val noModifiers = !ModifierState.ctrlPressed && !ModifierState.ctrlLocked && !ModifierState.altPressed && !ModifierState.altLocked && !ModifierState.metaPressed && !ModifierState.metaLocked
                                         if (keyInfo.code == KeyEvent.KEYCODE_UNKNOWN || (noModifiers && keyInfo.label.length == 1)) {
                                             val isShifted = ModifierState.shiftPressed || ModifierState.capsLockEnabled
                                             val textToCommit = if (keyInfo.label.length == 1) {
@@ -216,8 +336,94 @@ class CompBoardInputMethodService : InputMethodService() {
                                             
                                             if (ModifierState.shiftPressed && !ModifierState.capsLockEnabled) {
                                                 ModifierState.shiftPressed = false
-                                                // Trigger recomposition if needed
+                                                dispatcher.sendKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT)
                                             }
+                                            if (ModifierState.ctrlPressed && !ModifierState.ctrlLocked) {
+                                                ModifierState.ctrlPressed = false
+                                                dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                            }
+                                            if (ModifierState.altPressed && !ModifierState.altLocked) {
+                                                ModifierState.altPressed = false
+                                                dispatcher.sendKeyUp(KeyEvent.KEYCODE_ALT_LEFT)
+                                            }
+                                            if (ModifierState.metaPressed && !ModifierState.metaLocked) {
+                                                ModifierState.metaPressed = false
+                                                dispatcher.sendKeyUp(KeyEvent.KEYCODE_META_LEFT)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            onSwipe = { keyInfo, action ->
+                                when (keyInfo.label) {
+                                    "SPACE" -> {
+                                        if (action == "LEFT") {
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DPAD_LEFT)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DPAD_LEFT)
+                                        } else if (action == "RIGHT") {
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DPAD_RIGHT)
+                                        }
+                                    }
+                                    "⌫" -> {
+                                        if (action == "LEFT") {
+                                            // Delete word roughly (Ctrl+Backspace)
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_CTRL_LEFT)
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DEL)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DEL)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_CTRL_LEFT)
+                                        } else if (action == "DOWN") {
+                                            // Delete line roughly (Shift+Home then Del)
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_SHIFT_LEFT)
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_MOVE_HOME)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_MOVE_HOME)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_SHIFT_LEFT)
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DEL)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DEL)
+                                        }
+                                    }
+                                    "SHIFT" -> {
+                                        if (action == "UP") {
+                                            ModifierState.capsLockEnabled = !ModifierState.capsLockEnabled
+                                        } else if (action == "DOUBLE_TAP") {
+                                            ModifierState.capsLockEnabled = !ModifierState.capsLockEnabled
+                                        }
+                                    }
+                                    "CTRL" -> {
+                                        if (action == "DOUBLE_TAP") ModifierState.ctrlLocked = !ModifierState.ctrlLocked
+                                    }
+                                    "ALT" -> {
+                                        if (action == "DOUBLE_TAP") ModifierState.altLocked = !ModifierState.altLocked
+                                    }
+                                    "WIN" -> {
+                                        if (action == "DOUBLE_TAP") ModifierState.metaLocked = !ModifierState.metaLocked
+                                    }
+                                    "{" -> {
+                                        if (action == "LONG_PRESS") {
+                                            dispatcher.sendText("{\n\t\n}")
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DPAD_UP)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DPAD_UP)
+                                        }
+                                    }
+                                    "[" -> {
+                                        if (action == "LONG_PRESS") {
+                                            dispatcher.sendText("[\n\t\n]")
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DPAD_UP)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DPAD_UP)
+                                        }
+                                    }
+                                    "(" -> {
+                                        if (action == "LONG_PRESS") {
+                                            dispatcher.sendText("(\n\t\n)")
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DPAD_UP)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DPAD_UP)
+                                        }
+                                    }
+                                    "<" -> {
+                                        if (action == "LONG_PRESS") {
+                                            dispatcher.sendText("<\n\t\n>")
+                                            dispatcher.sendKeyDown(KeyEvent.KEYCODE_DPAD_UP)
+                                            dispatcher.sendKeyUp(KeyEvent.KEYCODE_DPAD_UP)
                                         }
                                     }
                                 }
@@ -258,10 +464,9 @@ class CompBoardInputMethodService : InputMethodService() {
                                                 else -> KeyboardLayoutType.QWERTY
                                             }
                                             currentLayoutType = nextLayout
-                                            getSharedPreferences("layout_prefs", android.content.Context.MODE_PRIVATE)
-                                                .edit()
-                                                .putString("current_layout", nextLayout.name)
-                                                .apply()
+                                            scope.launch {
+                                                settingsManager.setLayout(nextLayout.name)
+                                            }
                                         }
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
@@ -273,19 +478,55 @@ class CompBoardInputMethodService : InputMethodService() {
                                         )
                                     )
                                 }
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                        )
+                                        .clickable {
+                                            val nextProfile = when(currentProfile) {
+                                                KeyboardProfile.WINDOWS -> KeyboardProfile.LINUX
+                                                KeyboardProfile.LINUX -> KeyboardProfile.MACOS
+                                                KeyboardProfile.MACOS -> KeyboardProfile.TERMUX
+                                                KeyboardProfile.TERMUX -> KeyboardProfile.VSCODE
+                                                KeyboardProfile.VSCODE -> KeyboardProfile.GAMING
+                                                KeyboardProfile.GAMING -> KeyboardProfile.WINDOWS
+                                            }
+                                            currentProfile = nextProfile
+                                            scope.launch {
+                                                settingsManager.setProfile(nextProfile.name)
+                                            }
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        text = "👤 ${currentProfile.name}",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)
+                                        )
+                                    )
+                                }
                             }
                             
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                val chips = listOf("CTRL", "ALT", "SHIFT", "CAPS", "FN")
+                                val chips = listOf("CTRL", "ALT", "SHIFT", "WIN", "CAPS")
                                 chips.forEach { chip ->
-                                    // Static mock state for now
-                                    val isActive = chip == "CTRL" || chip == "SHIFT"
-                                    val bgColor = if (isActive) Color(0xFF5B21B6) else Color(0xFF111111)
+                                    val isActive = when (chip) {
+                                        "CTRL" -> ModifierState.ctrlPressed || ModifierState.ctrlLocked
+                                        "ALT" -> ModifierState.altPressed || ModifierState.altLocked
+                                        "SHIFT" -> ModifierState.shiftPressed
+                                        "CAPS" -> ModifierState.capsLockEnabled
+                                        "WIN" -> ModifierState.metaPressed || ModifierState.metaLocked
+                                        else -> false
+                                    }
+                                    val bgColor = if (isActive) Color(0xFF4F8CFF) else Color(0xFF1A1D26)
                                     val textColor = if (isActive) Color.White else Color(0xFFAAAAAA)
-                                    val borderColor = if (isActive) Color(0xFF5B21B6) else Color(0xFF333333)
+                                    val borderColor = if (isActive) Color(0xFF4F8CFF) else Color(0xFF2A2E39)
                                     
                                     Box(
                                         modifier = Modifier
@@ -352,61 +593,7 @@ class CompBoardInputMethodService : InputMethodService() {
                                 }
                             }
 
-                            // Debug Log Overlay
-                        if (ModifierState.debugLogs.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(top = 32.dp, end = 8.dp)
-                                    .background(Color.Black.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(0.3f),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        androidx.compose.material3.Text("Debug Log", color = Color.Gray, fontSize = 10.sp)
-                                        androidx.compose.material3.IconButton(
-                                            onClick = {
-                                                val textContent = ModifierState.debugLogs.joinToString("\n")
-                                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                                    val resolver = contentResolver
-                                                    val contentValues = android.content.ContentValues().apply {
-                                                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "keyboard_log_${System.currentTimeMillis()}.txt")
-                                                        put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-                                                        put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
-                                                    }
-                                                    val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                                                    if (uri != null) {
-                                                        resolver.openOutputStream(uri)?.use { outputStream ->
-                                                            outputStream.write(textContent.toByteArray())
-                                                        }
-                                                        android.widget.Toast.makeText(this@CompBoardInputMethodService, "Log downloaded to Downloads folder", android.widget.Toast.LENGTH_SHORT).show()
-                                                    }
-                                                } else {
-                                                    val file = java.io.File(getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "keyboard_log_${System.currentTimeMillis()}.txt")
-                                                    file.writeText(textContent)
-                                                    android.widget.Toast.makeText(this@CompBoardInputMethodService, "Log downloaded to App Downloads folder", android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                            },
-                                            modifier = Modifier.padding(2.dp)
-                                        ) {
-                                            androidx.compose.material3.Text("DL", fontSize=10.sp, color=Color.Gray)
-                                        }
-                                    }
-                                    ModifierState.debugLogs.forEach { logMsg ->
-                                        androidx.compose.material3.Text(
-                                            text = logMsg,
-                                            color = Color.White,
-                                            fontSize = 12.sp,
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                        )
-                                    }
-                                }
-                            }
-                        }
+
                         
                         AnimatedVisibility(
                                 visible = showClipboardPanel,
@@ -466,8 +653,7 @@ class CompBoardInputMethodService : InputMethodService() {
             ModifierState.log("Physical: $keyCode")
         }
         
-        val prefs = getSharedPreferences("remaps_prefs", android.content.Context.MODE_PRIVATE)
-        val remap = prefs.getString(keyCode.toString(), null)
+        val remap = currentRemaps[keyCode.toString()]
         if (remap != null) {
             when {
                 remap.startsWith("CHAR:") -> {
@@ -506,8 +692,7 @@ class CompBoardInputMethodService : InputMethodService() {
             ModifierState.activeKeys.remove(keyCode)
         }
         
-        val prefs = getSharedPreferences("remaps_prefs", android.content.Context.MODE_PRIVATE)
-        val remap = prefs.getString(keyCode.toString(), null)
+        val remap = currentRemaps[keyCode.toString()]
         if (remap != null) {
             when {
                 remap.startsWith("CHAR:") -> return true

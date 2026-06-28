@@ -43,6 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.example.ime.CompBoardInputMethodService
 import com.example.ui.theme.MyApplicationTheme
+import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
     private val requestNotificationPermissionLauncher =
@@ -459,6 +460,10 @@ fun SetupStepCard(
 @Composable
 fun SettingsScreen(innerPadding: PaddingValues) {
     val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context) }
+    val profileStr by settingsManager.profileFlow.collectAsState(initial = "WINDOWS")
+    val scope = rememberCoroutineScope()
+
     var showShortcuts by remember { mutableStateOf(false) }
     var showHaptics by remember { mutableStateOf(false) }
     var showRemap by remember { mutableStateOf(false) }
@@ -596,6 +601,60 @@ fun SettingsScreen(innerPadding: PaddingValues) {
                 SettingsItem("Key Height", "Normal")
                 Divider(color = MaterialTheme.colorScheme.surfaceVariant)
                 SettingsItem("Background Blur", "Off")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            SettingsSectionCard("Keyboard Profile") {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Choose an optimized layout profile to transform modifier keys, visual designs, and shortcuts dynamically.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    val profiles = listOf("WINDOWS", "LINUX", "MACOS", "TERMUX", "VSCODE", "GAMING")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        profiles.chunked(3).forEach { rowProfiles ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowProfiles.forEach { profile ->
+                                    val isSelected = profileStr == profile
+                                    val cardBorderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                    val cardBgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    val textColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable {
+                                                scope.launch {
+                                                    settingsManager.setProfile(profile)
+                                                }
+                                            },
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = androidx.compose.foundation.BorderStroke(if (isSelected) 2.dp else 1.dp, cardBorderColor),
+                                        colors = CardDefaults.cardColors(containerColor = cardBgColor)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = profile,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = textColor
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))

@@ -14,15 +14,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 @Composable
 fun RemapScreen(innerPadding: PaddingValues, onBack: () -> Unit) {
     val context = LocalContext.current
-    val prefs = context.getSharedPreferences("remaps_prefs", Context.MODE_PRIVATE)
+    val settingsManager = remember { SettingsManager(context) }
+    val scope = rememberCoroutineScope()
     
-    var remaps by remember { 
-        mutableStateOf(prefs.all.map { it.key to it.value.toString() }.toMap()) 
-    }
+    val remaps by settingsManager.remapsFlow.collectAsState(initial = emptyMap())
+    
     var showAddDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -72,8 +73,11 @@ fun RemapScreen(innerPadding: PaddingValues, onBack: () -> Unit) {
                             }
                             IconButton(
                                 onClick = {
-                                    prefs.edit().remove(originalKey).apply()
-                                    remaps = prefs.all.map { it.key to it.value.toString() }.toMap()
+                                    val newRemaps = remaps.toMutableMap()
+                                    newRemaps.remove(originalKey)
+                                    scope.launch {
+                                        settingsManager.saveRemaps(newRemaps)
+                                    }
                                 }
                             ) {
                                 Icon(Icons.Default.Warning, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
@@ -120,8 +124,11 @@ fun RemapScreen(innerPadding: PaddingValues, onBack: () -> Unit) {
                 TextButton(
                     onClick = {
                         if (originalKeyCode.isNotEmpty() && targetAction.isNotEmpty()) {
-                            prefs.edit().putString(originalKeyCode, targetAction).apply()
-                            remaps = prefs.all.map { it.key to it.value.toString() }.toMap()
+                            val newRemaps = remaps.toMutableMap()
+                            newRemaps[originalKeyCode] = targetAction
+                            scope.launch {
+                                settingsManager.saveRemaps(newRemaps)
+                            }
                             showAddDialog = false
                         }
                     }

@@ -15,7 +15,12 @@ object ModifierState {
     var shiftPressed by androidx.compose.runtime.mutableStateOf(false)
     var altPressed by androidx.compose.runtime.mutableStateOf(false)
     var metaPressed by androidx.compose.runtime.mutableStateOf(false)
+    
+    var ctrlLocked by androidx.compose.runtime.mutableStateOf(false)
+    var altLocked by androidx.compose.runtime.mutableStateOf(false)
+    var metaLocked by androidx.compose.runtime.mutableStateOf(false)
     var capsLockEnabled by androidx.compose.runtime.mutableStateOf(false)
+    
     var numLockEnabled by androidx.compose.runtime.mutableStateOf(false)
 
     val activeKeys = androidx.compose.runtime.mutableStateListOf<Int>()
@@ -40,7 +45,7 @@ object ModifierState {
     fun log(message: String) {
         recordKeyPress(message)
         debugLogs.add(message)
-        if (debugLogs.size > 10) {
+        if (debugLogs.size > 50) {
             debugLogs.removeAt(0)
         }
     }
@@ -48,10 +53,10 @@ object ModifierState {
     fun getModifierMask(): Int {
 
         var mask = 0
-        if (ctrlPressed) mask = mask or KeyEvent.META_CTRL_ON
-        if (shiftPressed) mask = mask or KeyEvent.META_SHIFT_ON
-        if (altPressed) mask = mask or KeyEvent.META_ALT_ON
-        if (metaPressed) mask = mask or KeyEvent.META_META_ON
+        if (ctrlPressed || ctrlLocked) mask = mask or KeyEvent.META_CTRL_ON
+        if (shiftPressed || capsLockEnabled) mask = mask or KeyEvent.META_SHIFT_ON
+        if (altPressed || altLocked) mask = mask or KeyEvent.META_ALT_ON
+        if (metaPressed || metaLocked) mask = mask or KeyEvent.META_META_ON
         return mask
     }
 }
