@@ -1,4 +1,4 @@
-name: Build CompBoard APK
+name: Build CompBoard Release APK
 
 on:
   push:
@@ -20,7 +20,6 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # ✅ Gradle 9.3.1 — AGP 9.1.1 ke liye correct version
     - name: Install Gradle 9.3.1
       run: |
         wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip \
@@ -32,7 +31,6 @@ jobs:
       run: |
         gradle wrapper --gradle-version=9.3.1
         chmod +x ./gradlew
-        echo "✅ JAR size: $(wc -c < gradle/wrapper/gradle-wrapper.jar) bytes"
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
@@ -40,16 +38,80 @@ jobs:
     - name: Accept Licenses
       run: yes | sdkmanager --licenses || true
 
-    - name: Install SDK Platform
+    - name: Install SDK Components
+      run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+    # ✅ FIX 1 — Release Keystore generate karo
+    - name: Generate Release Keystore
       run: |
-        sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        keytool -genkey -v \
+          -keystore $GITHUB_WORKSPACE/release.keystore \
+          -alias compboard-key \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -storepass CompBoard@2025 \
+          -keypass CompBoard@2025 \
+          -dname "CN=CompBoard,OU=Android,O=CompBoard,L=Gaya,S=Bihar,C=IN"
+        echo "✅ Keystore ready: $(ls -lh $GITHUB_WORKSPACE/release.keystore)"
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+    # ✅ FIX 2 — google-services.json placeholder banao
+    - name: Create google-services.json
+      run: |
+        mkdir -p app
+        cat > app/google-services.json << 'EOF'
+        {
+          "project_info": {
+            "project_number": "000000000000",
+            "project_id": "compboard-app",
+            "storage_bucket": "compboard-app.appspot.com"
+          },
+          "client": [
+            {
+              "client_info": {
+                "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                "android_client_info": {
+                  "package_name": "com.compboard.keyboard"
+                }
+              },
+              "oauth_client": [],
+              "api_key": [
+                {
+                  "current_key": "AIzaPlaceholderKeyCompBoard000000000000000"
+                }
+              ],
+              "services": {
+                "appinvite_service": {
+                  "other_platform_oauth_client": []
+                }
+              }
+            }
+          ],
+          "configuration_version": "1"
+        }
+        EOF
+        echo "✅ google-services.json created"
 
-    - name: Upload APK
+    # ✅ Release APK build — signing inject karo
+    - name: Build Release APK
+      run: |
+        ./gradlew assembleRelease \
+          -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/release.keystore \
+          -Pandroid.injected.signing.store.password=CompBoard@2025 \
+          -Pandroid.injected.signing.key.alias=compboard-key \
+          -Pandroid.injected.signing.key.password=CompBoard@2025 \
+          --no-daemon --stacktrace
+
+    # APK location find karo
+    - name: Find APK Files
+      run: |
+        echo "=== APK Files ==="
+        find . -name "*.apk" -type f
+        echo "=================="
+
+    - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
-        name: CompBoard-Debug-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: CompBoard-Release-APK
+        path: app/build/outputs/apk/release/*.apk
         retention-days: 30
