@@ -22,33 +22,43 @@ android {
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
+}
+  
+signingConfigs {
 
-  signingConfigs {
-    release {
-        storeFile = file("$rootDir/release.keystore")
-        storePassword = "CompBoard@2025"
+    create("release") {
+        storeFile = file("${rootDir}/release.keystore")
+        storePassword = System.getenv("STORE_PASSWORD") ?: "CompBoard@2025"
         keyAlias = "compboard-key"
-        keyPassword = "CompBoard@2025"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: "CompBoard@2025"
+    }
+
+    create("debugConfig") {
+        storeFile = file("${rootDir}/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
     }
 }
 
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
-  }
-
   buildTypes {
+
     release {
-      isCrunchPngs = false
-      isMinifyEnabled = true
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+        signingConfig = signingConfigs.getByName("release")
+        isMinifyEnabled = true
+        isCrunchPngs = false
+
+        proguardFiles(
+            getDefaultProguardFile("proguard-android-optimize.txt"),
+            "proguard-rules.pro"
+        )
     }
-  
-  }
+
+    debug {
+        signingConfig = signingConfigs.getByName("debugConfig")
+    }
+}
+
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
