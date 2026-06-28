@@ -16,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -462,6 +463,7 @@ fun SettingsScreen(innerPadding: PaddingValues) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager(context) }
     val profileStr by settingsManager.profileFlow.collectAsState(initial = "WINDOWS")
+    val keyStyleStr by settingsManager.keyStyleFlow.collectAsState(initial = "MECHANICAL")
     val scope = rememberCoroutineScope()
 
     var showShortcuts by remember { mutableStateOf(false) }
@@ -592,6 +594,107 @@ fun SettingsScreen(innerPadding: PaddingValues) {
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text("HACKER", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        "Keyboard Key Design", 
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Classic Mechanical Card
+                        val isMech = keyStyleStr == "MECHANICAL"
+                        val mechBorderColor = if (isMech) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        val mechBgColor = if (isMech) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        
+                        Card(
+                            modifier = Modifier.weight(1f).aspectRatio(4f/3f).clickable {
+                                scope.launch {
+                                    settingsManager.setKeyStyle("MECHANICAL")
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(if (isMech) 2.dp else 1.dp, mechBorderColor),
+                            colors = CardDefaults.cardColors(containerColor = mechBgColor)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                // Mini Mechanical Key simulation with 3D shadow skirt!
+                                Box(
+                                    modifier = Modifier
+                                        .width(50.dp)
+                                        .height(32.dp)
+                                ) {
+                                    // Base shadow
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(top = 4.dp)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                    )
+                                    // Key Cap
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight()
+                                            .padding(bottom = 3.dp)
+                                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                            .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(4.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("A", color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("Mechanical", color = if (isMech) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Text("Tactile 3D cap", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 8.sp)
+                            }
+                        }
+                        
+                        // Minimalist Flat Card
+                        val isFlat = keyStyleStr == "FLAT"
+                        val flatBorderColor = if (isFlat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        val flatBgColor = if (isFlat) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        
+                        Card(
+                            modifier = Modifier.weight(1f).aspectRatio(4f/3f).clickable {
+                                scope.launch {
+                                    settingsManager.setKeyStyle("FLAT")
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(if (isFlat) 2.dp else 1.dp, flatBorderColor),
+                            colors = CardDefaults.cardColors(containerColor = flatBgColor)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                // Mini Flat Key simulation
+                                Box(
+                                    modifier = Modifier
+                                        .width(50.dp)
+                                        .height(28.dp)
+                                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                        .border(0.5.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("A", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("Flat", color = if (isFlat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                Text("Sleek minimal", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 8.sp)
                             }
                         }
                     }

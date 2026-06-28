@@ -19,12 +19,19 @@ class SettingsManager(private val context: Context) {
         val KEY_LAYOUT = stringPreferencesKey("current_layout")
         val KEY_PROFILE = stringPreferencesKey("keyboard_profile")
         val KEY_REMAPS = stringPreferencesKey("key_remaps")
+        val KEY_KEY_STYLE = stringPreferencesKey("keyboard_key_style")
     }
 
     val themeFlow: Flow<String> = context.dataStore.data.map { it[KEY_THEME] ?: "amoled_dark" }
     
     suspend fun setTheme(theme: String) {
         context.dataStore.edit { it[KEY_THEME] = theme }
+    }
+
+    val keyStyleFlow: Flow<String> = context.dataStore.data.map { it[KEY_KEY_STYLE] ?: "MECHANICAL" }
+
+    suspend fun setKeyStyle(style: String) {
+        context.dataStore.edit { it[KEY_KEY_STYLE] = style }
     }
 
     val layoutFlow: Flow<String> = context.dataStore.data.map { it[KEY_LAYOUT] ?: "QWERTY" }

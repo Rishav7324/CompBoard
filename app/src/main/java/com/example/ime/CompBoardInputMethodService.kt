@@ -149,6 +149,15 @@ class CompBoardInputMethodService : InputMethodService() {
                         currentProfile = KeyboardProfile.WINDOWS
                     }
                 }
+
+                val keyStyleFlowStr by settingsManager.keyStyleFlow.collectAsState(initial = "MECHANICAL")
+                var currentKeyStyle by remember {
+                    mutableStateOf(keyStyleFlowStr)
+                }
+                
+                LaunchedEffect(keyStyleFlowStr) {
+                    currentKeyStyle = keyStyleFlowStr
+                }
                 
                 MyApplicationTheme {
                     Box(modifier = Modifier.fillMaxWidth().height(keyboardHeightDp)) {
@@ -156,6 +165,7 @@ class CompBoardInputMethodService : InputMethodService() {
                             modifier = Modifier.fillMaxSize(),
                             layoutType = currentLayoutType,
                             profile = currentProfile,
+                            keyStyle = currentKeyStyle,
                             onKeyPress = { keyInfo ->
                                 val prefs = getSharedPreferences("haptics_prefs", android.content.Context.MODE_PRIVATE)
                                 if (prefs.getBoolean("haptics_enabled", true)) {
@@ -503,6 +513,29 @@ class CompBoardInputMethodService : InputMethodService() {
                                     androidx.compose.material3.Text(
                                         text = "👤 ${currentProfile.name}",
                                         color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)
+                                        )
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                                        )
+                                        .clickable {
+                                            val nextStyle = if (currentKeyStyle == "MECHANICAL") "FLAT" else "MECHANICAL"
+                                            currentKeyStyle = nextStyle
+                                            scope.launch {
+                                                settingsManager.setKeyStyle(nextStyle)
+                                            }
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    androidx.compose.material3.Text(
+                                        text = if (currentKeyStyle == "MECHANICAL") "⌨️ MECH" else "⌨️ FLAT",
+                                        color = MaterialTheme.colorScheme.secondary,
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)
                                         )

@@ -22,43 +22,34 @@ android {
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
-}
-  
-signingConfigs {
 
+  signingConfigs {
     create("release") {
-        storeFile = file("${rootDir}/release.keystore")
-        storePassword = System.getenv("STORE_PASSWORD") ?: "CompBoard@2025"
-        keyAlias = "compboard-key"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: "CompBoard@2025"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      storeFile = file(keystorePath)
+      storePassword = System.getenv("STORE_PASSWORD")
+      keyAlias = "upload"
+      keyPassword = System.getenv("KEY_PASSWORD")
     }
-
     create("debugConfig") {
-        storeFile = file("${rootDir}/debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+      storeFile = file("${rootDir}/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
     }
-}
+  }
 
   buildTypes {
-
     release {
-        signingConfig = signingConfigs.getByName("release")
-        isMinifyEnabled = true
-        isCrunchPngs = false
-
-        proguardFiles(
-            getDefaultProguardFile("proguard-android-optimize.txt"),
-            "proguard-rules.pro"
-        )
+      isCrunchPngs = false
+      isMinifyEnabled = true
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = signingConfigs.getByName("release")
     }
-
     debug {
-        signingConfig = signingConfigs.getByName("debugConfig")
+      signingConfig = signingConfigs.getByName("debugConfig")
     }
-}
-
+  }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -68,7 +59,7 @@ signingConfigs {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
-
+}
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.

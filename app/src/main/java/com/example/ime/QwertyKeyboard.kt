@@ -1,6 +1,7 @@
 package com.example.ime
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.ui.draw.scale
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +47,7 @@ fun VirtualKeyboard(
     modifier: Modifier = Modifier,
     layoutType: KeyboardLayoutType = KeyboardLayoutType.QWERTY,
     profile: KeyboardProfile = KeyboardProfile.WINDOWS,
+    keyStyle: String = "MECHANICAL",
     onKeyPress: (KeyboardKeyInfo) -> Unit,
     onSwipe: (KeyboardKeyInfo, String) -> Unit = { _, _ -> }
 ) {
@@ -343,28 +346,29 @@ fun VirtualKeyboard(
             onSwipe = onSwipe, 
             modifier = Modifier.weight(0.7f),
             navActiveState = isNavModeActive,
-            profile = profile
+            profile = profile,
+            keyStyle = keyStyle
         )
         
         // Programmer Toolbar
         Row(modifier = Modifier.weight(0.6f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             for (key in programmerToolbar) {
-                KeyboardKey(key, onKeyPress, onSwipe, Modifier.weight(1f), fontSize = 12.sp, isProgrammerKey = true, profile = profile)
+                KeyboardKey(key, onKeyPress, onSwipe, Modifier.weight(1f), fontSize = 12.sp, isProgrammerKey = true, profile = profile, keyStyle = keyStyle)
             }
         }
         
         if (isNavModeActive) {
-            KeyboardRow(navRow1, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
-            KeyboardRow(navRow2, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
-            KeyboardRow(navRow3, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
+            KeyboardRow(navRow1, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
+            KeyboardRow(navRow2, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
+            KeyboardRow(navRow3, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
         } else if (isFnActive) {
-            KeyboardRow(fnRow1, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
-            KeyboardRow(fnRow2, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
+            KeyboardRow(fnRow1, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
+            KeyboardRow(fnRow2, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
             Spacer(modifier = Modifier.weight(1.2f))
         } else {
-            KeyboardRow(row1, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
-            KeyboardRow(row2, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
-            KeyboardRow(row3, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile)
+            KeyboardRow(row1, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
+            KeyboardRow(row2, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
+            KeyboardRow(row3, onKeyPress, onSwipe, modifier = Modifier.weight(1.2f), profile = profile, keyStyle = keyStyle)
         }
         
         // Custom bottom row for FN toggle
@@ -409,28 +413,76 @@ fun VirtualKeyboard(
                         }
                     }
                     var isPressed by remember { mutableStateOf(false) }
-                    val scale by animateFloatAsState(targetValue = if (isPressed) 0.90f else 1f, label = "")
                     
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(key.weight)
-                            .scale(scale)
-                            .background(bgColor, RoundedCornerShape(cornerRadius))
-                            .border(1.dp, borderColor, RoundedCornerShape(cornerRadius))
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        isPressed = true
-                                        isFnActive = !isFnActive
-                                        tryAwaitRelease()
-                                        isPressed = false
-                                    }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("FN", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    if (keyStyle == "MECHANICAL") {
+                        val skirtColor = lerp(bgColor, Color.Black, 0.45f)
+                        val highlightedBorderColor = lerp(borderColor, Color.White, 0.1f)
+                        val animatedSkirtThickness by animateDpAsState(
+                            targetValue = if (isPressed) 1.dp else 4.dp,
+                            label = "skirtThickness"
+                        )
+                        val animatedTopOffset by animateDpAsState(
+                            targetValue = if (isPressed) 3.dp else 0.dp,
+                            label = "topOffset"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(key.weight)
+                                .padding(bottom = 1.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            isPressed = true
+                                            isFnActive = !isFnActive
+                                            tryAwaitRelease()
+                                            isPressed = false
+                                        }
+                                    )
+                                }
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = 2.dp)
+                                    .background(skirtColor, RoundedCornerShape(cornerRadius))
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight()
+                                    .offset(y = animatedTopOffset)
+                                    .padding(bottom = animatedSkirtThickness)
+                                    .background(bgColor, RoundedCornerShape(cornerRadius))
+                                    .border(1.dp, highlightedBorderColor, RoundedCornerShape(cornerRadius)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("FN", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        val scale by animateFloatAsState(targetValue = if (isPressed) 0.90f else 1f, label = "")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(key.weight)
+                                .scale(scale)
+                                .background(bgColor, RoundedCornerShape(cornerRadius))
+                                .border(1.dp, borderColor, RoundedCornerShape(cornerRadius))
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            isPressed = true
+                                            isFnActive = !isFnActive
+                                            tryAwaitRelease()
+                                            isPressed = false
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("FN", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 } else {
                     KeyboardKey(
@@ -438,7 +490,8 @@ fun VirtualKeyboard(
                         onKeyPress = onKeyPress,
                         onSwipe = onSwipe,
                         modifier = Modifier.weight(key.weight),
-                        profile = profile
+                        profile = profile,
+                        keyStyle = keyStyle
                     )
                 }
             }
@@ -453,7 +506,8 @@ fun KeyboardRow(
     onSwipe: (KeyboardKeyInfo, String) -> Unit,
     modifier: Modifier = Modifier,
     navActiveState: Boolean = false,
-    profile: KeyboardProfile = KeyboardProfile.WINDOWS
+    profile: KeyboardProfile = KeyboardProfile.WINDOWS,
+    keyStyle: String = "MECHANICAL"
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -466,7 +520,8 @@ fun KeyboardRow(
                 onSwipe = onSwipe,
                 modifier = Modifier.weight(key.weight),
                 navActiveState = navActiveState,
-                profile = profile
+                profile = profile,
+                keyStyle = keyStyle
             )
         }
     }
@@ -481,7 +536,8 @@ fun KeyboardKey(
     fontSize: androidx.compose.ui.unit.TextUnit = 16.sp,
     isProgrammerKey: Boolean = false,
     navActiveState: Boolean = false,
-    profile: KeyboardProfile = KeyboardProfile.WINDOWS
+    profile: KeyboardProfile = KeyboardProfile.WINDOWS,
+    keyStyle: String = "MECHANICAL"
 ) {
     var isPressed by remember { mutableStateOf(false) }
     var accumulatedDragX by remember { mutableStateOf(0f) }
@@ -583,94 +639,207 @@ fun KeyboardKey(
         else -> 8.dp
     }
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.85f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "keyScale"
-    )
-
-    Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .scale(scale)
-            .background(bgColor, RoundedCornerShape(cornerRadius))
-            .border(1.dp, borderColor, RoundedCornerShape(cornerRadius))
-            .pointerInput(key) {
-                if (key.label == "SPACE") {
-                    detectDragGestures(
-                        onDragStart = { 
+    if (keyStyle == "MECHANICAL") {
+        val skirtColor = lerp(bgColor, Color.Black, 0.45f)
+        val highlightedBorderColor = lerp(borderColor, Color.White, 0.1f)
+        
+        val animatedSkirtThickness by animateDpAsState(
+            targetValue = if (isPressed || isActive) 1.dp else 4.dp,
+            label = "skirtThickness"
+        )
+        val animatedTopOffset by animateDpAsState(
+            targetValue = if (isPressed || isActive) 3.dp else 0.dp,
+            label = "topOffset"
+        )
+        
+        Box(
+            modifier = modifier
+                .fillMaxHeight()
+                .padding(bottom = 1.dp)
+                .pointerInput(key) {
+                    if (key.label == "SPACE") {
+                        detectDragGestures(
+                            onDragStart = { 
+                                isPressed = true
+                                accumulatedDragX = 0f
+                            },
+                            onDragEnd = { isPressed = false },
+                            onDragCancel = { isPressed = false },
+                            onDrag = { change, dragAmount ->
+                                accumulatedDragX += dragAmount.x
+                                if (accumulatedDragX > 35f) {
+                                    onSwipe(key, "RIGHT")
+                                    accumulatedDragX = 0f
+                                } else if (accumulatedDragX < -35f) {
+                                    onSwipe(key, "LEFT")
+                                    accumulatedDragX = 0f
+                                }
+                                change.consume()
+                            }
+                        )
+                    } else {
+                        detectDragGestures(
+                            onDragStart = { isPressed = true },
+                            onDragEnd = { isPressed = false },
+                            onDragCancel = { isPressed = false },
+                            onDrag = { change, dragAmount ->
+                                if (abs(dragAmount.x) > abs(dragAmount.y)) {
+                                    if (dragAmount.x > 25f) onSwipe(key, "RIGHT")
+                                    else if (dragAmount.x < -25f) onSwipe(key, "LEFT")
+                                } else {
+                                    if (dragAmount.y > 25f) onSwipe(key, "DOWN")
+                                    else if (dragAmount.y < -25f) onSwipe(key, "UP")
+                                }
+                                change.consume()
+                            }
+                        )
+                    }
+                }
+                .pointerInput(key) {
+                    detectTapGestures(
+                        onPress = {
                             isPressed = true
-                            accumulatedDragX = 0f
+                            onKeyPress(key)
+                            tryAwaitRelease()
+                            isPressed = false
                         },
-                        onDragEnd = { isPressed = false },
-                        onDragCancel = { isPressed = false },
-                        onDrag = { change, dragAmount ->
-                            accumulatedDragX += dragAmount.x
-                            if (accumulatedDragX > 35f) {
-                                onSwipe(key, "RIGHT")
-                                accumulatedDragX = 0f
-                            } else if (accumulatedDragX < -35f) {
-                                onSwipe(key, "LEFT")
-                                accumulatedDragX = 0f
-                            }
-                            change.consume()
-                        }
-                    )
-                } else {
-                    detectDragGestures(
-                        onDragStart = { isPressed = true },
-                        onDragEnd = { isPressed = false },
-                        onDragCancel = { isPressed = false },
-                        onDrag = { change, dragAmount ->
-                            if (abs(dragAmount.x) > abs(dragAmount.y)) {
-                                if (dragAmount.x > 25f) onSwipe(key, "RIGHT")
-                                else if (dragAmount.x < -25f) onSwipe(key, "LEFT")
-                            } else {
-                                if (dragAmount.y > 25f) onSwipe(key, "DOWN")
-                                else if (dragAmount.y < -25f) onSwipe(key, "UP")
-                            }
-                            change.consume()
+                        onDoubleTap = {
+                            onSwipe(key, "DOUBLE_TAP")
+                        },
+                        onLongPress = {
+                            onSwipe(key, "LONG_PRESS")
                         }
                     )
                 }
-            }
-            .pointerInput(key) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        onKeyPress(key)
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onDoubleTap = {
-                        onSwipe(key, "DOUBLE_TAP")
-                    },
-                    onLongPress = {
-                        onSwipe(key, "LONG_PRESS")
-                    }
-                )
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        if (key.secondaryLabel.isNotEmpty()) {
-            Text(
-                text = key.secondaryLabel,
-                color = textColor.copy(alpha = 0.5f),
-                fontSize = 10.sp,
+        ) {
+            // 3D bottom base skirt shadow
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
+                    .fillMaxSize()
                     .padding(top = 2.dp)
+                    .background(skirtColor, RoundedCornerShape(cornerRadius))
+            )
+            
+            // Compressing keycap surface
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .offset(y = animatedTopOffset)
+                    .padding(bottom = animatedSkirtThickness)
+                    .background(bgColor, RoundedCornerShape(cornerRadius))
+                    .border(1.dp, highlightedBorderColor, RoundedCornerShape(cornerRadius)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (key.secondaryLabel.isNotEmpty()) {
+                    Text(
+                        text = key.secondaryLabel,
+                        color = textColor.copy(alpha = 0.5f),
+                        fontSize = 10.sp,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 2.dp)
+                    )
+                }
+                Text(
+                    text = key.label,
+                    color = textColor,
+                    fontSize = fontSize,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+        }
+    } else {
+        val scale by animateFloatAsState(
+            targetValue = if (isPressed) 0.92f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "keyScale"
+        )
+        
+        Box(
+            modifier = modifier
+                .fillMaxHeight()
+                .scale(scale)
+                .background(bgColor, RoundedCornerShape(cornerRadius))
+                .border(0.5.dp, borderColor.copy(alpha = 0.5f), RoundedCornerShape(cornerRadius))
+                .pointerInput(key) {
+                    if (key.label == "SPACE") {
+                        detectDragGestures(
+                            onDragStart = { 
+                                isPressed = true
+                                accumulatedDragX = 0f
+                            },
+                            onDragEnd = { isPressed = false },
+                            onDragCancel = { isPressed = false },
+                            onDrag = { change, dragAmount ->
+                                accumulatedDragX += dragAmount.x
+                                if (accumulatedDragX > 35f) {
+                                    onSwipe(key, "RIGHT")
+                                    accumulatedDragX = 0f
+                                } else if (accumulatedDragX < -35f) {
+                                    onSwipe(key, "LEFT")
+                                    accumulatedDragX = 0f
+                                }
+                                change.consume()
+                            }
+                        )
+                    } else {
+                        detectDragGestures(
+                            onDragStart = { isPressed = true },
+                            onDragEnd = { isPressed = false },
+                            onDragCancel = { isPressed = false },
+                            onDrag = { change, dragAmount ->
+                                if (abs(dragAmount.x) > abs(dragAmount.y)) {
+                                    if (dragAmount.x > 25f) onSwipe(key, "RIGHT")
+                                    else if (dragAmount.x < -25f) onSwipe(key, "LEFT")
+                                } else {
+                                    if (dragAmount.y > 25f) onSwipe(key, "DOWN")
+                                    else if (dragAmount.y < -25f) onSwipe(key, "UP")
+                                }
+                                change.consume()
+                            }
+                        )
+                    }
+                }
+                .pointerInput(key) {
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            onKeyPress(key)
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
+                        onDoubleTap = {
+                            onSwipe(key, "DOUBLE_TAP")
+                        },
+                        onLongPress = {
+                            onSwipe(key, "LONG_PRESS")
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (key.secondaryLabel.isNotEmpty()) {
+                Text(
+                    text = key.secondaryLabel,
+                    color = textColor.copy(alpha = 0.4f),
+                    fontSize = 10.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 2.dp)
+                )
+            }
+            Text(
+                text = key.label,
+                color = textColor,
+                fontSize = fontSize,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.align(Alignment.Center)
             )
         }
-        Text(
-            text = key.label,
-            color = textColor,
-            fontSize = fontSize,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.Center)
-        )
     }
 }
