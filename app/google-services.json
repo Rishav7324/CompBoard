@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "455568437062",
+    "project_id": "prontly-text-editor-2216-490b4",
+    "storage_bucket": "prontly-text-editor-2216-490b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:455568437062:android:ffc820ff2c829bc47e7f47",
+        "android_client_info": {
+          "package_name": "com.compboard.keyboard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOU0IIIUSMUXEUAhFCKfKPQKLI0u1GXWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
