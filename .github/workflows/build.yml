@@ -53,6 +53,7 @@ jobs:
           -keypass CompBoard@2025 \
           -dname "CN=CompBoard,OU=Android,O=CompBoard,L=Gaya,S=Bihar,C=IN"
 
+    # ✅ Package name fix — com.example
     - name: Create google-services.json
       run: |
         cat > app/google-services.json << 'EOF'
@@ -87,7 +88,6 @@ jobs:
         }
         EOF
 
-    # ✅ -x lintVitalRelease → lint skip, APK bnega
     - name: Build Release APK
       run: |
         ./gradlew assembleRelease \
