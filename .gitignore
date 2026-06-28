@@ -13,3 +13,7 @@
 /captures
 .externalNativeBuild
 .cxx
+local.properties
+.env
+debug.keystore
+/android-sdk
