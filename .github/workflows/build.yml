@@ -58,34 +58,34 @@ jobs:
       run: |
         cat > app/google-services.json << 'EOF'
         {
-          "project_info": {
-            "project_number": "000000000000",
-            "project_id": "compboard-app",
-            "storage_bucket": "compboard-app.appspot.com"
-          },
-          "client": [
-            {
-              "client_info": {
-                "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-                "android_client_info": {
-                  "package_name": "com.example"
-                }
-              },
-              "oauth_client": [],
-              "api_key": [
-                {
-                  "current_key": "AIzaPlaceholderKeyCompBoard000000000000000"
-                }
-              ],
-              "services": {
-                "appinvite_service": {
-                  "other_platform_oauth_client": []
-                }
-              }
-            }
-          ],
-          "configuration_version": "1"
+         "project_info": {
+         "project_number": "455568437062",
+          "project_id": "prontly-text-editor-2216-490b4",
+         "storage_bucket": "prontly-text-editor-2216-490b4.firebasestorage.app"
+         },
+         "client": [
+         {
+          "client_info": {
+        "mobilesdk_app_id": "1:455568437062:android:ffc820ff2c829bc47e7f47",
+        "android_client_info": {
+          "package_name": "com.compboard.keyboard"
         }
+         },
+          "oauth_client": [],
+          "api_key": [
+        {
+          "current_key": "AIzaSyAOU0IIIUSMUXEUAhFCKfKPQKLI0u1GXWM"
+        }
+         ],
+         "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+         }
+        }
+         ],
+        "configuration_version": "1"
+          }
         EOF
 
     - name: Build Release APK
