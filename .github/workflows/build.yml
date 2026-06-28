@@ -3,15 +3,14 @@ name: Build CompBoard APK
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # Manual trigger button
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -21,16 +20,31 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    # ✅ YE STEP CORRUPTED JAR FIX KARTA HAI
+    - name: Install Gradle directly
+      run: |
+        wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip \
+          -O /tmp/gradle.zip
+        unzip -q /tmp/gradle.zip -d /opt/gradle
+        echo "/opt/gradle/gradle-8.5/bin" >> $GITHUB_PATH
+
+    # ✅ Fresh wrapper generate karo (corrupted jar replace hoga)
+    - name: Regenerate Gradle Wrapper
+      run: |
+        gradle wrapper --gradle-version=8.5
+        chmod +x ./gradlew
+        echo "JAR size: $(wc -c < gradle/wrapper/gradle-wrapper.jar) bytes"
+
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Grant Gradle permission
-      run: chmod +x ./gradlew
+    - name: Accept SDK Licenses
+      run: yes | sdkmanager --licenses || true
 
     - name: Build Debug APK
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: CompBoard-Debug-APK
